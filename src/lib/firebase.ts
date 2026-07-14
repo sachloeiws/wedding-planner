@@ -4,22 +4,31 @@ import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "firebase/firestor
 let dbInstance: any = null;
 
 export async function getFirebaseDb() {
+  // 如果已經初始化過，就直接回傳實例，避免重複連線
   if (dbInstance) return dbInstance;
 
   try {
-    const response = await fetch('/firebase-applet-config.json');
-    if (!response.ok) {
-      throw new Error('Failed to load Firebase configuration');
+    // 🛑 移除原本的 fetch('/firebase-applet-config.json')
+    // ✅ 改用 import.meta.env 讀取 Vite 環境變數
+    const config = {
+      apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+      storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+      appId: import.meta.env.VITE_FIREBASE_APP_ID
+    };
+
+    // 檢查是否有讀取到 API Key (防呆機制)
+    if (!config.apiKey) {
+      throw new Error('Failed to load Firebase configuration from environment variables.');
     }
-    const config = await response.json();
+
     const app = initializeApp(config);
     
-    // Check if a specific firestore database ID is set
-    if (config.firestoreDatabaseId) {
-      dbInstance = getFirestore(app, config.firestoreDatabaseId);
-    } else {
-      dbInstance = getFirestore(app);
-    }
+    // 初始化 Firestore
+    dbInstance = getFirestore(app);
+    
     return dbInstance;
   } catch (error) {
     console.error('Firebase initialization error:', error);
