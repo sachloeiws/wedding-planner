@@ -1,0 +1,18 @@
+{
+  "collections": {
+    "wedding_plans": {
+      "documents": {
+        "{planId}": {
+          "fields": {
+            "weddingDate": "string",
+            "categories": "array",
+            "tasks": "array",
+            "tableAssignments": "map",
+            "calendarEvents": "array",
+            "updatedAt": "timestamp"
+          }
+        }
+      }
+    }
+  }
+}

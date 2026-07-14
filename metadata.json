@@ -1,0 +1,6 @@
+{
+  "name": "婚禮待辦與排座助手",
+  "description": "優雅直覺的婚禮籌備與宴席排座管理工具，協助新人輕鬆管理待辦清單與賓客桌位排座。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
