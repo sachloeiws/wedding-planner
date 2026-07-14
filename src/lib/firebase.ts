@@ -51,10 +51,15 @@ export async function saveWeddingPlan(planId: string, data: WeddingPlanData) {
   try {
     const db = await getFirebaseDb();
     const planDocRef = doc(db, "wedding_plans", planId);
+
+    // 💡 新增這行：將 data 轉成 JSON 字串再轉回物件，藉此徹底濾除所有 undefined 的欄位
+    const sanitizedData = JSON.parse(JSON.stringify(data));
+
     await setDoc(planDocRef, {
-      ...data,
+      ...sanitizedData, // 改為寫入清洗過的資料
       updatedAt: new Date().toISOString()
     });
+    
     return true;
   } catch (error) {
     console.error(`Error saving wedding plan ${planId}:`, error);
