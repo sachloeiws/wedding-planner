@@ -1,0 +1,25 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Firebase Keys / Secrets (保護你的機密)
+.env
+.env.*
+firebase-applet-config.json
+firebase-blueprint.json
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Editor directories and files
+.vscode/
+.idea/
