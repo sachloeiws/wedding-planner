@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import TodoList from './components/TodoList';
 import TablePlanner from './components/TablePlanner';
 import WeddingCalendar from './components/WeddingCalendar';
-import { TodoItem, TableAssignments, CalendarEvent } from './types';
+import { TodoItem, TableAssignments, DEFAULT_CATEGORIES, CalendarEvent } from './types';
 import { 
   Heart, 
   Calendar, 
@@ -31,12 +31,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import { saveWeddingPlan, loadWeddingPlan, subscribeWeddingPlan, WeddingPlanData } from './lib/firebase';
 
 export default function App() {
-  // States initialized without any default values
+  // Empty default tasks
   const [tasks, setTasks] = useState<TodoItem[]>(() => {
     const saved = localStorage.getItem('wedding_tasks');
     return saved ? JSON.parse(saved) : [];
   });
 
+  // Empty default table assignments
   const [tableAssignments, setTableAssignments] = useState<TableAssignments>(() => {
     const saved = localStorage.getItem('wedding_table_assignments');
     if (saved) {
@@ -66,16 +67,19 @@ export default function App() {
     return { table_size_limit: 12, tables: [] };
   });
 
+  // Empty default date
   const [weddingDate, setWeddingDate] = useState<string>(() => {
     const saved = localStorage.getItem('wedding_date');
     return saved ? saved : '';
   });
 
+  // Restored Default Categories
   const [categories, setCategories] = useState<string[]>(() => {
     const saved = localStorage.getItem('wedding_categories');
-    return saved ? JSON.parse(saved) : [];
+    return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
   });
 
+  // Empty default calendar events
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(() => {
     const saved = localStorage.getItem('wedding_calendar_events');
     return saved ? JSON.parse(saved) : [];
@@ -95,9 +99,10 @@ export default function App() {
   });
   const [syncStatus, setSyncStatus] = useState<'offline' | 'loading' | 'synced' | 'error'>('offline');
   const [syncError, setSyncError] = useState<string>('');
-  const [isUpdatingFromCloud, setIsUpdatingFromCloud] = useState<boolean>(false);
+  
+  // FIX: Use useRef instead of useState to prevent triggering re-renders and auto-sync effects
+  const isUpdatingFromCloud = useRef<boolean>(false);
 
-  // Fixed Infinite Loop: Using functional state updates to avoid stale closures
   useEffect(() => {
     if (!isSyncEnabled || !syncKey.trim()) {
       setSyncStatus('offline');
@@ -115,28 +120,31 @@ export default function App() {
           return;
         }
 
-        setIsUpdatingFromCloud(true);
+        // Lock auto-sync
+        isUpdatingFromCloud.current = true;
         
-        if (cloudData.weddingDate) {
+        // Update states only if they have changed from current state
+        if (cloudData.weddingDate !== undefined) {
           setWeddingDate(prev => prev !== cloudData.weddingDate ? cloudData.weddingDate : prev);
         }
-        if (cloudData.categories) {
+        if (cloudData.categories !== undefined) {
           setCategories(prev => JSON.stringify(prev) !== JSON.stringify(cloudData.categories) ? cloudData.categories : prev);
         }
-        if (cloudData.tasks) {
+        if (cloudData.tasks !== undefined) {
           setTasks(prev => JSON.stringify(prev) !== JSON.stringify(cloudData.tasks) ? cloudData.tasks : prev);
         }
-        if (cloudData.tableAssignments) {
+        if (cloudData.tableAssignments !== undefined) {
           setTableAssignments(prev => JSON.stringify(prev) !== JSON.stringify(cloudData.tableAssignments) ? cloudData.tableAssignments : prev);
         }
-        if (cloudData.calendarEvents) {
+        if (cloudData.calendarEvents !== undefined) {
           setCalendarEvents(prev => JSON.stringify(prev) !== JSON.stringify(cloudData.calendarEvents) ? cloudData.calendarEvents : prev);
         }
 
+        // Unlock auto-sync after state changes have settled
         setTimeout(() => {
-          setIsUpdatingFromCloud(false);
+          isUpdatingFromCloud.current = false;
           setSyncStatus('synced');
-        }, 150);
+        }, 500); 
       },
       (err) => {
         setSyncStatus('error');
@@ -149,7 +157,7 @@ export default function App() {
 
     return () => {
       unsubscribe();
-      setIsUpdatingFromCloud(false);
+      isUpdatingFromCloud.current = false;
     };
   }, [isSyncEnabled, syncKey]);
 
@@ -159,8 +167,9 @@ export default function App() {
 
   // Auto-sync local state changes to Firestore
   useEffect(() => {
+    // If we are offline, or if a cloud update is currently processing, DO NOT save
     if (!isSyncEnabled || !syncKey.trim() || syncStatus !== 'synced') return;
-    if (isUpdatingFromCloud) return;
+    if (isUpdatingFromCloud.current) return;
 
     const dataToSave: WeddingPlanData = {
       weddingDate,
@@ -171,6 +180,9 @@ export default function App() {
     };
 
     const timeoutId = setTimeout(() => {
+      // Double check lock right before saving
+      if (isUpdatingFromCloud.current) return; 
+
       saveWeddingPlan(syncKey.trim(), dataToSave)
         .catch(err => {
           console.error("Auto-sync error:", err);
@@ -180,7 +192,8 @@ export default function App() {
     }, 800);
 
     return () => clearTimeout(timeoutId);
-  }, [tasks, tableAssignments, weddingDate, categories, calendarEvents, isSyncEnabled, syncKey, syncStatus, isUpdatingFromCloud]);
+    // Removed isUpdatingFromCloud from dependency array completely
+  }, [tasks, tableAssignments, weddingDate, categories, calendarEvents, isSyncEnabled, syncKey, syncStatus]);
 
   const handleManualUpload = async () => {
     if (!syncKey.trim()) {
@@ -223,7 +236,7 @@ export default function App() {
         return;
       }
       
-      setIsUpdatingFromCloud(true);
+      isUpdatingFromCloud.current = true;
       if (cloudData.weddingDate) setWeddingDate(cloudData.weddingDate);
       if (cloudData.categories) setCategories(cloudData.categories);
       if (cloudData.tasks) setTasks(cloudData.tasks);
@@ -231,10 +244,10 @@ export default function App() {
       if (cloudData.calendarEvents) setCalendarEvents(cloudData.calendarEvents);
       
       setTimeout(() => {
-        setIsUpdatingFromCloud(false);
+        isUpdatingFromCloud.current = false;
         setSyncStatus('synced');
         alert("成功從雲端下載最新的籌備資料，已為您覆蓋本地！");
-      }, 150);
+      }, 500);
     } catch (err: any) {
       setSyncStatus('error');
       setSyncError(`下載失敗: ${err.message}`);
@@ -263,7 +276,6 @@ export default function App() {
     localStorage.setItem('wedding_calendar_events', JSON.stringify(calendarEvents));
   }, [calendarEvents]);
 
-  // Calculate Countdown (Handle empty state gracefully)
   const getDaysRemaining = () => {
     if (!weddingDate) return null;
     const wedding = new Date(weddingDate);
@@ -281,7 +293,7 @@ export default function App() {
       setTasks([]);
       setTableAssignments({ table_size_limit: 12, tables: [] });
       setWeddingDate('');
-      setCategories([]);
+      setCategories(DEFAULT_CATEGORIES);
       setCalendarEvents([]);
       setActiveTab('todo');
     }
