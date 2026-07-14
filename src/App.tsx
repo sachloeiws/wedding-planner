@@ -23,8 +23,6 @@ import {
   Users,
   Cloud,
   CloudOff,
-  Wifi,
-  WifiOff,
   Database
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -67,7 +65,6 @@ export default function App() {
     return { table_size_limit: 12, tables: [] };
   });
 
-  // Empty default date
   const [weddingDate, setWeddingDate] = useState<string>(() => {
     const saved = localStorage.getItem('wedding_date');
     return saved ? saved : '';
@@ -79,7 +76,6 @@ export default function App() {
     return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
   });
 
-  // Empty default calendar events
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(() => {
     const saved = localStorage.getItem('wedding_calendar_events');
     return saved ? JSON.parse(saved) : [];
@@ -100,8 +96,8 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState<'offline' | 'loading' | 'synced' | 'error'>('offline');
   const [syncError, setSyncError] = useState<string>('');
   
-  // FIX: Use useRef instead of useState to prevent triggering re-renders and auto-sync effects
-  const isUpdatingFromCloud = useRef<boolean>(false);
+  // THE FIX: An anchor to track the last known cloud state. Completely stops infinite loops.
+  const lastSyncedData = useRef<string>('');
 
   useEffect(() => {
     if (!isSyncEnabled || !syncKey.trim()) {
@@ -116,35 +112,41 @@ export default function App() {
       syncKey.trim(),
       (cloudData) => {
         if (!cloudData) {
+          // Document doesn't exist yet! We set status to synced, and the auto-sync 
+          // effect below will catch this and write our current local data up to the DB.
           setSyncStatus('synced');
           return;
         }
 
-        // Lock auto-sync
-        isUpdatingFromCloud.current = true;
+        // Standardize the incoming payload shape to match exactly what we send out
+        const incomingData: WeddingPlanData = {
+          weddingDate: cloudData.weddingDate !== undefined ? cloudData.weddingDate : '',
+          categories: cloudData.categories !== undefined ? cloudData.categories : DEFAULT_CATEGORIES,
+          tasks: cloudData.tasks !== undefined ? cloudData.tasks : [],
+          tableAssignments: cloudData.tableAssignments !== undefined ? cloudData.tableAssignments : { table_size_limit: 12, tables: [] },
+          calendarEvents: cloudData.calendarEvents !== undefined ? cloudData.calendarEvents : []
+        };
         
-        // Update states only if they have changed from current state
-        if (cloudData.weddingDate !== undefined) {
-          setWeddingDate(prev => prev !== cloudData.weddingDate ? cloudData.weddingDate : prev);
-        }
-        if (cloudData.categories !== undefined) {
-          setCategories(prev => JSON.stringify(prev) !== JSON.stringify(cloudData.categories) ? cloudData.categories : prev);
-        }
-        if (cloudData.tasks !== undefined) {
-          setTasks(prev => JSON.stringify(prev) !== JSON.stringify(cloudData.tasks) ? cloudData.tasks : prev);
-        }
-        if (cloudData.tableAssignments !== undefined) {
-          setTableAssignments(prev => JSON.stringify(prev) !== JSON.stringify(cloudData.tableAssignments) ? cloudData.tableAssignments : prev);
-        }
-        if (cloudData.calendarEvents !== undefined) {
-          setCalendarEvents(prev => JSON.stringify(prev) !== JSON.stringify(cloudData.calendarEvents) ? cloudData.calendarEvents : prev);
+        const incomingStr = JSON.stringify(incomingData);
+
+        // INFINITE LOOP BREAKER: If the cloud just sent us the exact same data we already have 
+        // (or just sent ourselves), ABORT! Do not trigger any React state updates.
+        if (incomingStr === lastSyncedData.current) {
+          setSyncStatus('synced');
+          return;
         }
 
-        // Unlock auto-sync after state changes have settled
-        setTimeout(() => {
-          isUpdatingFromCloud.current = false;
-          setSyncStatus('synced');
-        }, 500); 
+        // It is new data from another device! Save it to our anchor.
+        lastSyncedData.current = incomingStr;
+
+        // Apply it safely to our UI
+        setWeddingDate(incomingData.weddingDate!);
+        setCategories(incomingData.categories!);
+        setTasks(incomingData.tasks!);
+        setTableAssignments(incomingData.tableAssignments!);
+        setCalendarEvents(incomingData.calendarEvents!);
+
+        setSyncStatus('synced');
       },
       (err) => {
         setSyncStatus('error');
@@ -155,10 +157,7 @@ export default function App() {
     localStorage.setItem('wedding_sync_key', syncKey);
     localStorage.setItem('wedding_sync_enabled', 'true');
 
-    return () => {
-      unsubscribe();
-      isUpdatingFromCloud.current = false;
-    };
+    return () => unsubscribe();
   }, [isSyncEnabled, syncKey]);
 
   useEffect(() => {
@@ -167,23 +166,28 @@ export default function App() {
 
   // Auto-sync local state changes to Firestore
   useEffect(() => {
-    // If we are offline, or if a cloud update is currently processing, DO NOT save
     if (!isSyncEnabled || !syncKey.trim() || syncStatus !== 'synced') return;
-    if (isUpdatingFromCloud.current) return;
 
-    const dataToSave: WeddingPlanData = {
+    // Assemble exactly as ordered in the incoming listener
+    const currentData: WeddingPlanData = {
       weddingDate,
       categories,
       tasks,
       tableAssignments,
       calendarEvents
     };
+    
+    const currentStr = JSON.stringify(currentData);
+
+    // If there's no actual change relative to our sync anchor, skip uploading.
+    if (currentStr === lastSyncedData.current) return;
 
     const timeoutId = setTimeout(() => {
-      // Double check lock right before saving
-      if (isUpdatingFromCloud.current) return; 
+      // Lock the data into the anchor BEFORE sending it to the cloud. 
+      // When the cloud echoes it back to us in 1 second, it will hit the loop breaker above.
+      lastSyncedData.current = currentStr;
 
-      saveWeddingPlan(syncKey.trim(), dataToSave)
+      saveWeddingPlan(syncKey.trim(), currentData)
         .catch(err => {
           console.error("Auto-sync error:", err);
           setSyncStatus('error');
@@ -192,7 +196,6 @@ export default function App() {
     }, 800);
 
     return () => clearTimeout(timeoutId);
-    // Removed isUpdatingFromCloud from dependency array completely
   }, [tasks, tableAssignments, weddingDate, categories, calendarEvents, isSyncEnabled, syncKey, syncStatus]);
 
   const handleManualUpload = async () => {
@@ -209,6 +212,8 @@ export default function App() {
         tableAssignments,
         calendarEvents
       };
+      
+      lastSyncedData.current = JSON.stringify(dataToSave);
       await saveWeddingPlan(syncKey.trim(), dataToSave);
       setSyncStatus('synced');
       alert("成功將當前本地的所有籌備資料上傳備份至雲端！");
@@ -236,18 +241,24 @@ export default function App() {
         return;
       }
       
-      isUpdatingFromCloud.current = true;
-      if (cloudData.weddingDate) setWeddingDate(cloudData.weddingDate);
-      if (cloudData.categories) setCategories(cloudData.categories);
-      if (cloudData.tasks) setTasks(cloudData.tasks);
-      if (cloudData.tableAssignments) setTableAssignments(cloudData.tableAssignments);
-      if (cloudData.calendarEvents) setCalendarEvents(cloudData.calendarEvents);
+      const incomingData: WeddingPlanData = {
+        weddingDate: cloudData.weddingDate !== undefined ? cloudData.weddingDate : '',
+        categories: cloudData.categories !== undefined ? cloudData.categories : DEFAULT_CATEGORIES,
+        tasks: cloudData.tasks !== undefined ? cloudData.tasks : [],
+        tableAssignments: cloudData.tableAssignments !== undefined ? cloudData.tableAssignments : { table_size_limit: 12, tables: [] },
+        calendarEvents: cloudData.calendarEvents !== undefined ? cloudData.calendarEvents : []
+      };
+
+      lastSyncedData.current = JSON.stringify(incomingData);
+
+      setWeddingDate(incomingData.weddingDate!);
+      setCategories(incomingData.categories!);
+      setTasks(incomingData.tasks!);
+      setTableAssignments(incomingData.tableAssignments!);
+      setCalendarEvents(incomingData.calendarEvents!);
       
-      setTimeout(() => {
-        isUpdatingFromCloud.current = false;
-        setSyncStatus('synced');
-        alert("成功從雲端下載最新的籌備資料，已為您覆蓋本地！");
-      }, 500);
+      setSyncStatus('synced');
+      alert("成功從雲端下載最新的籌備資料，已為您覆蓋本地！");
     } catch (err: any) {
       setSyncStatus('error');
       setSyncError(`下載失敗: ${err.message}`);
