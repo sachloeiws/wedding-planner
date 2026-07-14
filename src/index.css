@@ -1,0 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+TC:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Noto Serif TC", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", "Noto Serif TC", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Natural Tones Theme Colors */
+  --color-nat-bg: #FAF8F5;
+  --color-nat-text: #4A443F;
+  --color-nat-sage: #8E9E8C;
+  --color-nat-sage-light: #F5F8F5;
+  --color-nat-cream: #F2EDE4;
+  --color-nat-border: #E2D9CD;
+  --color-nat-dark: #5E564E;
+  --color-nat-taupe: #A6998A;
+  --color-nat-sand: #F5F0E8;
+  --color-nat-sand-border: #E8DFD1;
+  --color-nat-gold: #D4A373;
+  --color-nat-gold-light: #E6D5C3;
+  --color-nat-terracotta: #8C745A;
+}
+
+body {
+  background-color: #FAF8F5;
+  color: #4A443F;
+  font-family: var(--font-sans);
+}
+
