@@ -18,6 +18,7 @@ export async function getFirebaseDb() {
       messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
       appId: import.meta.env.VITE_FIREBASE_APP_ID
     };
+    console.log("🔍 Firebase Config 檢查:", config);
 
     // 檢查是否有讀取到 API Key (防呆機制)
     if (!config.apiKey) {
