@@ -27,7 +27,7 @@ export async function getFirebaseDb() {
     const app = initializeApp(config);
     
     // 初始化 Firestore
-    dbInstance = getFirestore(app);
+    dbInstance = getFirestore(app, 'Wedding Planner Main');
     
     return dbInstance;
   } catch (error) {
