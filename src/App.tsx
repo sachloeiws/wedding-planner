@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import TodoList from './components/TodoList';
 import TablePlanner from './components/TablePlanner';
 import WeddingCalendar from './components/WeddingCalendar';
-import { TodoItem, TableAssignments, DEFAULT_CATEGORIES, CalendarEvent } from './types';
+import { TodoItem, TableAssignments, CalendarEvent } from './types';
 import { 
   Heart, 
   Calendar, 
@@ -30,110 +30,11 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { saveWeddingPlan, loadWeddingPlan, subscribeWeddingPlan, WeddingPlanData } from './lib/firebase';
 
-// Default mock data to seed the application
-const DEFAULT_TASKS: TodoItem[] = [
-  {
-    id: "task_001",
-    category: "場地與餐宴",
-    title: "確認婚宴場地與桌數範圍",
-    due_date: "2026-08-30",
-    status: "In_Progress",
-    notes: "需確認每桌基本起桌價及服務費"
-  },
-  {
-    id: "task_002",
-    category: "禮服與造型",
-    title: "預約新娘禮服試穿與新秘試妝",
-    due_date: "2026-09-10",
-    status: "Pending",
-    notes: "預計挑選 1 套白紗、2 套晚禮服，諮詢檔期"
-  },
-  {
-    id: "task_003",
-    category: "喜帖與謝卡",
-    title: "設計電子喜帖並發送出席問卷",
-    due_date: "2026-09-30",
-    status: "Pending",
-    notes: "使用線上表單統計出席人數、素食及兒童椅需求"
-  },
-  {
-    id: "task_004",
-    category: "婚禮流程",
-    title: "與主持人確認婚禮流程與音樂清單",
-    due_date: "2026-10-05",
-    status: "Pending",
-    notes: "流程包含一進、二進敬酒、抽捧花與小遊戲"
-  }
-];
-
-const DEFAULT_ASSIGNMENTS: TableAssignments = {
-  table_size_limit: 12,
-  tables: [
-    {
-      table_no: 1,
-      zone: "男方主桌",
-      guests: [
-        { id: "g_1_1", name: "林爺爺", notes: "主位" },
-        { id: "g_1_2", name: "林奶奶", notes: "主位" },
-        { id: "g_1_3", name: "林爸爸", notes: "主家" },
-        { id: "g_1_4", name: "林媽媽", notes: "主家" },
-        { id: "g_1_5", name: "林叔叔", notes: "招待" },
-        { id: "g_1_6", name: "林嬸嬸", notes: "" },
-        { id: "g_1_7", name: "林大伯", notes: "" },
-        { id: "g_1_8", name: "林大伯母", notes: "" },
-        { id: "g_1_9", name: "陳舅舅", notes: "" },
-        { id: "g_1_10", name: "陳舅媽", notes: "" },
-        { id: "g_1_11", name: "林大哥", notes: "" },
-        { id: "g_1_12", name: "林大嫂", notes: "" }
-      ]
-    },
-    {
-      table_no: 2,
-      zone: "女方主桌",
-      guests: [
-        { id: "g_2_1", name: "張爺爺", notes: "主位" },
-        { id: "g_2_2", name: "張奶奶", notes: "主位" },
-        { id: "g_2_3", name: "張爸爸", notes: "主家" },
-        { id: "g_2_4", name: "張媽媽", notes: "主家" },
-        { id: "g_2_5", name: "張叔叔", notes: "" },
-        { id: "g_2_6", name: "張嬸嬸", notes: "" },
-        { id: "g_2_7", name: "張大伯", notes: "" },
-        { id: "g_2_8", name: "張大伯母", notes: "" },
-        { id: "g_2_9", name: "王外公", notes: "長輩" },
-        { id: "g_2_10", name: "王外婆", notes: "長輩" },
-        { id: "g_2_11", name: "張大哥", notes: "" },
-        { id: "g_2_12", name: "張大嫂", notes: "" }
-      ]
-    },
-    {
-      table_no: 3,
-      zone: "大學同學",
-      guests: [
-        { id: "g_3_1", name: "王大明", notes: "素食" },
-        { id: "g_3_2", name: "李小華", notes: "需要嬰兒椅" },
-        { id: "g_3_3", name: "陳冠宇", notes: "" },
-        { id: "g_3_4", name: "張雅婷", notes: "" },
-        { id: "g_3_5", name: "劉傑克", notes: "" }
-      ]
-    },
-    {
-      table_no: 4,
-      zone: "公司同事",
-      guests: [
-        { id: "g_4_1", name: "周協理", notes: "貴賓" },
-        { id: "g_4_2", name: "黃經理", notes: "" },
-        { id: "g_4_3", name: "趙課長", notes: "" },
-        { id: "g_4_4", name: "徐專員", notes: "" },
-        { id: "g_4_5", name: "孫助理", notes: "素食" }
-      ]
-    }
-  ]
-};
-
 export default function App() {
+  // States initialized without any default values
   const [tasks, setTasks] = useState<TodoItem[]>(() => {
     const saved = localStorage.getItem('wedding_tasks');
-    return saved ? JSON.parse(saved) : DEFAULT_TASKS;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [tableAssignments, setTableAssignments] = useState<TableAssignments>(() => {
@@ -141,7 +42,6 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as TableAssignments;
-        // Sanitize legacy tables that have string[] instead of GuestItem[]
         if (parsed && Array.isArray(parsed.tables)) {
           parsed.tables = parsed.tables.map(t => ({
             ...t,
@@ -160,40 +60,25 @@ export default function App() {
         return parsed;
       } catch (e) {
         console.error("Error parsing stored table assignments:", e);
-        return DEFAULT_ASSIGNMENTS;
+        return { table_size_limit: 12, tables: [] };
       }
     }
-    return DEFAULT_ASSIGNMENTS;
+    return { table_size_limit: 12, tables: [] };
   });
 
   const [weddingDate, setWeddingDate] = useState<string>(() => {
     const saved = localStorage.getItem('wedding_date');
-    return saved ? saved : '2026-10-18';
+    return saved ? saved : '';
   });
 
   const [categories, setCategories] = useState<string[]>(() => {
     const saved = localStorage.getItem('wedding_categories');
-    return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(() => {
     const saved = localStorage.getItem('wedding_calendar_events');
-    return saved ? JSON.parse(saved) : [
-      {
-        id: "event_1",
-        title: "婚宴場地場勘 (大直典華)",
-        date: "2026-08-15",
-        notes: "預約下午 2:00，窗口林經理",
-        category: "婚禮準備"
-      },
-      {
-        id: "event_2",
-        title: "挑選拍照西裝與婚紗",
-        date: "2026-09-12",
-        notes: "記得帶隱形眼鏡與高跟鞋",
-        category: "婚禮準備"
-      }
-    ];
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [activeTab, setActiveTab] = useState<'todo' | 'calendar' | 'table'>('todo');
@@ -212,7 +97,7 @@ export default function App() {
   const [syncError, setSyncError] = useState<string>('');
   const [isUpdatingFromCloud, setIsUpdatingFromCloud] = useState<boolean>(false);
 
-  // Subscribe to real-time updates from Firestore when enabled
+  // Fixed Infinite Loop: Using functional state updates to avoid stale closures
   useEffect(() => {
     if (!isSyncEnabled || !syncKey.trim()) {
       setSyncStatus('offline');
@@ -226,45 +111,28 @@ export default function App() {
       syncKey.trim(),
       (cloudData) => {
         if (!cloudData) {
-          // If document doesn't exist on cloud, let's write our current local data to initialize it
-          const initialData: WeddingPlanData = {
-            weddingDate,
-            categories,
-            tasks,
-            tableAssignments,
-            calendarEvents
-          };
-          saveWeddingPlan(syncKey.trim(), initialData)
-            .then(() => {
-              setSyncStatus('synced');
-            })
-            .catch(err => {
-              setSyncStatus('error');
-              setSyncError('無法建立雲端新文件。');
-            });
+          setSyncStatus('synced');
           return;
         }
 
-        // We got data from cloud. Update local states if they are different
         setIsUpdatingFromCloud(true);
         
-        if (cloudData.weddingDate && cloudData.weddingDate !== weddingDate) {
-          setWeddingDate(cloudData.weddingDate);
+        if (cloudData.weddingDate) {
+          setWeddingDate(prev => prev !== cloudData.weddingDate ? cloudData.weddingDate : prev);
         }
-        if (cloudData.categories && JSON.stringify(cloudData.categories) !== JSON.stringify(categories)) {
-          setCategories(cloudData.categories);
+        if (cloudData.categories) {
+          setCategories(prev => JSON.stringify(prev) !== JSON.stringify(cloudData.categories) ? cloudData.categories : prev);
         }
-        if (cloudData.tasks && JSON.stringify(cloudData.tasks) !== JSON.stringify(tasks)) {
-          setTasks(cloudData.tasks);
+        if (cloudData.tasks) {
+          setTasks(prev => JSON.stringify(prev) !== JSON.stringify(cloudData.tasks) ? cloudData.tasks : prev);
         }
-        if (cloudData.tableAssignments && JSON.stringify(cloudData.tableAssignments) !== JSON.stringify(tableAssignments)) {
-          setTableAssignments(cloudData.tableAssignments);
+        if (cloudData.tableAssignments) {
+          setTableAssignments(prev => JSON.stringify(prev) !== JSON.stringify(cloudData.tableAssignments) ? cloudData.tableAssignments : prev);
         }
-        if (cloudData.calendarEvents && JSON.stringify(cloudData.calendarEvents) !== JSON.stringify(calendarEvents)) {
-          setCalendarEvents(cloudData.calendarEvents);
+        if (cloudData.calendarEvents) {
+          setCalendarEvents(prev => JSON.stringify(prev) !== JSON.stringify(cloudData.calendarEvents) ? cloudData.calendarEvents : prev);
         }
 
-        // Allow some time for state updates to batch before resetting the flag
         setTimeout(() => {
           setIsUpdatingFromCloud(false);
           setSyncStatus('synced');
@@ -285,12 +153,11 @@ export default function App() {
     };
   }, [isSyncEnabled, syncKey]);
 
-  // Persist sync settings state changes
   useEffect(() => {
     localStorage.setItem('wedding_sync_enabled', isSyncEnabled ? 'true' : 'false');
   }, [isSyncEnabled]);
 
-  // Auto-sync local state changes to Firestore when enabled
+  // Auto-sync local state changes to Firestore
   useEffect(() => {
     if (!isSyncEnabled || !syncKey.trim() || syncStatus !== 'synced') return;
     if (isUpdatingFromCloud) return;
@@ -310,7 +177,7 @@ export default function App() {
           setSyncStatus('error');
           setSyncError('自動同步失敗，請檢查網路。');
         });
-    }, 800); // 800ms debounce to batch quick successive edits
+    }, 800);
 
     return () => clearTimeout(timeoutId);
   }, [tasks, tableAssignments, weddingDate, categories, calendarEvents, isSyncEnabled, syncKey, syncStatus, isUpdatingFromCloud]);
@@ -396,47 +263,30 @@ export default function App() {
     localStorage.setItem('wedding_calendar_events', JSON.stringify(calendarEvents));
   }, [calendarEvents]);
 
-  // Calculate Countdown
+  // Calculate Countdown (Handle empty state gracefully)
   const getDaysRemaining = () => {
+    if (!weddingDate) return null;
     const wedding = new Date(weddingDate);
-    // Set hours to 0 to compare days properly
     wedding.setHours(0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const diffTime = wedding.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
   const daysRemaining = getDaysRemaining();
 
   const handleReset = () => {
-    if (window.confirm('確定要將待辦清單、日曆與排座資料重設回預設範例嗎？(這將覆蓋您目前的修改)')) {
-      setTasks(DEFAULT_TASKS);
-      setTableAssignments(DEFAULT_ASSIGNMENTS);
-      setWeddingDate('2026-10-18');
-      setCategories(DEFAULT_CATEGORIES);
-      setCalendarEvents([
-        {
-          id: "event_1",
-          title: "婚宴場地場勘 (大直典華)",
-          date: "2026-08-15",
-          notes: "預約下午 2:00，窗口林經理",
-          category: "婚禮準備"
-        },
-        {
-          id: "event_2",
-          title: "挑選拍照西裝與婚紗",
-          date: "2026-09-12",
-          notes: "記得帶隱形眼鏡與高跟鞋",
-          category: "婚禮準備"
-        }
-      ]);
+    if (window.confirm('確定要清除所有資料並重設嗎？(這將覆蓋您目前的修改)')) {
+      setTasks([]);
+      setTableAssignments({ table_size_limit: 12, tables: [] });
+      setWeddingDate('');
+      setCategories([]);
+      setCalendarEvents([]);
       setActiveTab('todo');
     }
   };
 
-  // Export formatting matching the user's initial structure requested
   const getExportJSON = () => {
     const formattedTodoList = tasks.map(t => ({
       id: t.id,
@@ -461,7 +311,6 @@ export default function App() {
           zone: t.zone,
           current_guests: guestCount,
           status: status,
-          // Include actual guests list for full data fidelity
           guests: t.guests 
         };
       })
@@ -481,14 +330,11 @@ export default function App() {
 
   return (
     <div id="wedding_app_container" className="min-h-screen bg-[#FAF8F5] text-[#4A443F] flex flex-col pb-12 antialiased">
-      {/* Delicate romantic top background pattern matching the Natural Tones theme */}
       <div className="absolute top-0 inset-x-0 h-64 bg-gradient-to-b from-[#8E9E8C]/10 via-[#F2EDE4]/30 to-transparent pointer-events-none" />
 
-      {/* Primary Brand Navbar */}
       <header className="relative bg-[#F2EDE4]/80 backdrop-blur-md border-b border-[#E2D9CD] px-6 py-4">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           
-          {/* Logo Brand */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-[#FAF8F5] flex items-center justify-center border border-[#E2D9CD]">
               <Heart className="w-5 h-5 text-[#8E9E8C] fill-[#8E9E8C]/10" />
@@ -505,9 +351,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Header Action Center */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* Wedding Date Configuration */}
             <div className="flex items-center gap-2 bg-[#FAF8F5]/90 border border-[#E2D9CD] px-3 py-1.5 rounded-xl text-xs">
               <Calendar className="w-3.5 h-3.5 text-[#A6998A]" />
               <span className="text-[#A6998A] font-medium">婚禮日期:</span>
@@ -520,7 +364,6 @@ export default function App() {
               />
             </div>
 
-            {/* Actions */}
             <button
               id="btn_export_data"
               onClick={() => setIsExporting(true)}
@@ -533,20 +376,18 @@ export default function App() {
               id="btn_reset_data"
               onClick={handleReset}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-[#4A443F] hover:bg-[#FAF8F5] border border-[#E2D9CD] rounded-lg text-xs font-semibold transition"
-              title="還原為預設範例資料"
+              title="清除所有資料"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              重設範例
+              全部清除
             </button>
           </div>
 
         </div>
       </header>
 
-      {/* Main Body */}
       <main className="relative flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 pt-6">
         
-        {/* Countdown Banner / Highlight Stats */}
         <div className="bg-white border border-[#F0EBE4] rounded-[2rem] p-6 shadow-xs mb-6 flex flex-col md:flex-row justify-between items-center gap-4 relative overflow-hidden">
           <div className="absolute top-0 left-0 h-1.5 w-full bg-[#8E9E8C]" />
           <div className="flex items-center gap-4">
@@ -556,7 +397,9 @@ export default function App() {
             <div>
               <p className="text-[10px] uppercase tracking-widest text-[#A6998A] mb-1">Wedding Countdown</p>
               <h2 className="text-lg font-serif text-[#5E564E]">
-                {daysRemaining > 0 ? (
+                {daysRemaining === null ? (
+                  <>請先設定您的 <span className="text-[#D4A373] text-xl font-bold">大喜之日</span></>
+                ) : daysRemaining > 0 ? (
                   <>距離大喜之日還有 <span className="text-[#D4A373] text-2xl font-bold font-mono">{daysRemaining}</span> 天</>
                 ) : daysRemaining === 0 ? (
                   <span className="text-[#8E9E8C] font-bold flex items-center gap-1">🎉 祝新婚快樂！今天就是你們的大喜之日！ 🎉</span>
@@ -595,12 +438,10 @@ export default function App() {
           </div>
         </div>
 
-        {/* Firebase Cloud Sync Control Panel */}
         <div className="bg-white border border-[#F0EBE4] rounded-[2rem] p-6 shadow-xs mb-6 relative overflow-hidden">
           <div className="absolute top-0 left-0 h-1 w-full bg-[#D4A373]/60" />
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             
-            {/* Left Column: Title & Current Status */}
             <div className="space-y-2 max-w-md">
               <div className="flex items-center gap-2">
                 <Database className="w-5 h-5 text-[#8E9E8C]" />
@@ -612,7 +453,6 @@ export default function App() {
                 在不同裝置（如：新郎電腦與新娘手機）輸入同一個專屬金鑰，即可實現多人實時編輯、即時安排桌位與更新籌備進度！
               </p>
               
-              {/* Status Badge */}
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <span className="text-[10px] font-semibold text-[#8C745A]">同步狀態：</span>
                 {syncStatus === 'offline' && (
@@ -647,7 +487,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Right Column: Key Input & Controls */}
             <div className="flex-1 max-w-lg bg-[#FAF8F5] border border-[#F0EBE4] p-4 rounded-2xl flex flex-col sm:flex-row items-end gap-3.5">
               <div className="flex-1 w-full space-y-1.5">
                 <label className="block text-[10px] font-bold text-[#A6998A] uppercase tracking-wider">
@@ -660,7 +499,7 @@ export default function App() {
                   onChange={(e) => {
                     setSyncKey(e.target.value.trim());
                     if (isSyncEnabled) {
-                      setIsSyncEnabled(false); // Disable if they change key
+                      setIsSyncEnabled(false);
                       setSyncStatus('offline');
                     }
                   }}
@@ -668,9 +507,7 @@ export default function App() {
                 />
               </div>
 
-              {/* Action buttons stack */}
               <div className="flex w-full sm:w-auto gap-2 shrink-0">
-                {/* Enable/Disable Toggle */}
                 {isSyncEnabled ? (
                   <button
                     onClick={() => {
@@ -697,7 +534,6 @@ export default function App() {
                   </button>
                 )}
 
-                {/* Manual Backups Dropdown/Actions for non-realtime or direct overrides */}
                 <button
                   onClick={handleManualUpload}
                   className="px-2.5 py-2 bg-white hover:bg-[#F2EDE4]/30 border border-[#E2D9CD] text-[#5E564E] text-xs font-semibold rounded-xl transition cursor-pointer"
@@ -718,7 +554,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Tab Swapper - elegant, full-width below header */}
         <div className="bg-[#F2EDE4]/70 p-1 rounded-2xl border border-[#E2D9CD] flex gap-1 mb-6 max-w-xl mx-auto w-full">
           <button
             id="btn_tab_todo"
@@ -758,7 +593,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* Tab Content Display */}
         <div className="w-full">
           {activeTab === 'todo' && (
             <TodoList 
@@ -785,7 +619,6 @@ export default function App() {
 
       </main>
 
-      {/* Export overlay modal */}
       <AnimatePresence>
         {isExporting && (
           <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
@@ -836,7 +669,6 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Footer */}
       <footer className="mt-12 text-center text-[11px] text-[#A6998A]">
         <p>© 2026 婚禮待辦與排座助手 • 陪伴每對新人優雅起航</p>
       </footer>
