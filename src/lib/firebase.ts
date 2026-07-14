@@ -11,12 +11,12 @@ export async function getFirebaseDb() {
     // 🛑 移除原本的 fetch('/firebase-applet-config.json')
     // ✅ 改用 import.meta.env 讀取 Vite 環境變數
     const config = {
-      apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-      storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-      appId: import.meta.env.VITE_FIREBASE_APP_ID
+      apiKey: "AIzaSyDX57hGVw4Ah6XQZQDR-x2aHIuGIHvS3YU",
+      authDomain: "gen-lang-client-0384823757.firebaseapp.com",
+      projectId: "gen-lang-client-0384823757",
+      storageBucket: "gen-lang-client-0384823757.firebasestorage.app",
+      messagingSenderId: "264454517889",
+      appId: "1:264454517889:web:2c3b9cdc131398e79f8980"
     };
     console.log("🔍 Firebase Config 檢查:", config);
 
