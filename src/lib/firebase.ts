@@ -53,6 +53,7 @@ export async function saveWeddingPlan(planId: string, data: WeddingPlanData) {
     const planDocRef = doc(db, "wedding_plans", planId);
 
     // 💡 新增這行：將 data 轉成 JSON 字串再轉回物件，藉此徹底濾除所有 undefined 的欄位
+    console.log("準備寫入的資料:", data);
     const sanitizedData = JSON.parse(JSON.stringify(data));
 
     await setDoc(planDocRef, {
