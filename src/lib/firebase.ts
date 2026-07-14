@@ -51,19 +51,21 @@ export async function saveWeddingPlan(planId: string, data: WeddingPlanData) {
   try {
     const db = await getFirebaseDb();
     const planDocRef = doc(db, "wedding_plans", planId);
-
-    // 💡 新增這行：將 data 轉成 JSON 字串再轉回物件，藉此徹底濾除所有 undefined 的欄位
-    console.log("準備寫入的資料:", data);
     const sanitizedData = JSON.parse(JSON.stringify(data));
 
+    console.log("⏳ [1] 準備發送寫入請求到 Firestore...");
+
+    // 真正的寫入動作在這裡
     await setDoc(planDocRef, {
-      ...sanitizedData, // 改為寫入清洗過的資料
+      ...sanitizedData,
       updatedAt: new Date().toISOString()
     });
     
+    console.log("✅ [2] Firestore 回傳成功！資料確定已寫入！");
     return true;
+
   } catch (error) {
-    console.error(`Error saving wedding plan ${planId}:`, error);
+    console.error("❌ [3] 寫入時遭到 Firebase 拒絕或發生錯誤：", error);
     throw error;
   }
 }
