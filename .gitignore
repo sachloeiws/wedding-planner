@@ -11,10 +11,10 @@ dist/
 dist-ssr/
 
 # Firebase Keys / Secrets (保護你的機密)
-.env
-.env.*
-firebase-applet-config.json
-firebase-blueprint.json
+#.env
+#.env.*
+#firebase-applet-config.json
+#firebase-blueprint.json
 
 # System Files
 .DS_Store
