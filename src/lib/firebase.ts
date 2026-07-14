@@ -54,6 +54,7 @@ export async function saveWeddingPlan(planId: string, data: WeddingPlanData) {
     const sanitizedData = JSON.parse(JSON.stringify(data));
 
     console.log("[1] 準備發送寫入請求到 Firestore...");
+    console.log(sanitizedData);
 
     // 真正的寫入動作在這裡
     await setDoc(planDocRef, {
