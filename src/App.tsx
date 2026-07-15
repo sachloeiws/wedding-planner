@@ -127,9 +127,13 @@ export default function App() {
   const [syncKey, setSyncKey] = useState<string>(() => {
     return localStorage.getItem('wedding_sync_key') || '';
   });
-  const [isSyncEnabled, setIsSyncEnabled] = useState<boolean>(() => {
-    return localStorage.getItem('wedding_sync_enabled') === 'true';
+  const [username, setUsername] = useState<string>(() => {
+    return localStorage.getItem('wedding_sync_username') || '';
   });
+  const [isSyncEnabled, setIsSyncEnabled] = useState<boolean>(() => {
+    return false;
+  });
+  const [activeCollectionName, setActiveCollectionName] = useState('');
   const [syncStatus, setSyncStatus] = useState<'offline' | 'loading' | 'synced' | 'error'>('offline');
   const [syncError, setSyncError] = useState<string>('');
   
@@ -137,7 +141,7 @@ export default function App() {
   const lastSyncedData = useRef<string>('');
 
   useEffect(() => {
-    if (!isSyncEnabled || !syncKey.trim()) {
+    if (!isSyncEnabled || !activeCollectionName) {
       setSyncStatus('offline');
       return;
     }
@@ -146,12 +150,17 @@ export default function App() {
     setSyncError('');
 
     const unsubscribe = subscribeWeddingPlan(
-      syncKey.trim(),
+      activeCollectionName,
       (cloudData) => {
         if (!cloudData) {
-          // Document doesn't exist yet! We set status to synced, and the auto-sync 
-          // effect below will catch this and write our current local data up to the DB.
-          setSyncStatus('synced');
+          const initialData = getCurrentPlanData();
+          lastSyncedData.current = JSON.stringify(initialData);
+          saveWeddingPlan(activeCollectionName, initialData)
+            .then(() => setSyncStatus('synced'))
+            .catch((err) => {
+              setSyncStatus('error');
+              setSyncError(`建立雲端資料失敗: ${err.message}`);
+            });
           return;
         }
 
@@ -201,22 +210,18 @@ export default function App() {
       }
     );
 
-    localStorage.setItem('wedding_sync_key', syncKey);
+    localStorage.setItem('wedding_sync_key', syncKey.trim());
+    localStorage.setItem('wedding_sync_username', username.trim());
     localStorage.setItem('wedding_sync_enabled', 'true');
 
     return () => unsubscribe();
-  }, [isSyncEnabled, syncKey]);
+  }, [isSyncEnabled, activeCollectionName]);
 
   useEffect(() => {
     localStorage.setItem('wedding_sync_enabled', isSyncEnabled ? 'true' : 'false');
   }, [isSyncEnabled]);
 
-  // Auto-sync local state changes to Firestore
-  useEffect(() => {
-    if (!isSyncEnabled || !syncKey.trim() || syncStatus !== 'synced') return;
-
-    // Assemble exactly as ordered in the incoming listener
-    const currentData: WeddingPlanData = {
+  const getCurrentPlanData = (): WeddingPlanData => ({
       weddingDate,
       categories,
       tasks,
@@ -227,73 +232,70 @@ export default function App() {
       formResponses,
       responseFieldMapping,
       responseFilterRules
+  });
+
+  const hasUnsavedChanges = isSyncEnabled
+    && Boolean(lastSyncedData.current)
+    && JSON.stringify(getCurrentPlanData()) !== lastSyncedData.current;
+
+  useEffect(() => {
+    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedChanges) return;
+      event.preventDefault();
+      event.returnValue = '';
     };
-    
-    const currentStr = JSON.stringify(currentData);
 
-    // If there's no actual change relative to our sync anchor, skip uploading.
-    if (currentStr === lastSyncedData.current) return;
+    window.addEventListener('beforeunload', warnBeforeLeaving);
+    return () => window.removeEventListener('beforeunload', warnBeforeLeaving);
+  }, [hasUnsavedChanges]);
 
-    const timeoutId = setTimeout(() => {
-      // Lock the data into the anchor BEFORE sending it to the cloud. 
-      // When the cloud echoes it back to us in 1 second, it will hit the loop breaker above.
-      lastSyncedData.current = currentStr;
-
-      saveWeddingPlan(syncKey.trim(), currentData)
-        .catch(err => {
-          console.error("Auto-sync error:", err);
-          setSyncStatus('error');
-          setSyncError('自動同步失敗，請檢查網路。');
-        });
-    }, 800);
-
-    return () => clearTimeout(timeoutId);
-  }, [tasks, tableAssignments, weddingDate, categories, calendarEvents, responseSourceConfig, responseHeaders, formResponses, responseFieldMapping, responseFilterRules, isSyncEnabled, syncKey, syncStatus]);
+  const handleConfirmCredentials = () => {
+    const cleanKey = syncKey.trim();
+    const cleanUsername = username.trim();
+    if (!cleanKey || !cleanUsername) {
+      alert('請先輸入使用者名稱及婚禮同步金鑰！');
+      return;
+    }
+    if (!/^[A-Za-z0-9_-]+$/.test(cleanKey) || !/^[A-Za-z0-9_-]+$/.test(cleanUsername)) {
+      alert('使用者名稱及金鑰只可包含英文、數字、底線或連字號。');
+      return;
+    }
+    setActiveCollectionName(`${cleanKey}_${cleanUsername}`);
+    setIsSyncEnabled(true);
+  };
 
   const handleManualUpload = async () => {
-    if (!syncKey.trim()) {
-      alert("請先輸入您的婚禮同步金鑰！");
+    if (!isSyncEnabled || !activeCollectionName) {
+      alert("請先確認使用者名稱及婚禮同步金鑰！");
       return;
     }
     try {
       setSyncStatus('loading');
-      const dataToSave: WeddingPlanData = {
-        weddingDate,
-        categories,
-        tasks,
-        tableAssignments,
-        calendarEvents,
-      responseSourceConfig,
-      responseHeaders,
-      formResponses,
-      responseFieldMapping,
-      responseFilterRules
-    };
-      
+      const dataToSave = getCurrentPlanData();
+      await saveWeddingPlan(activeCollectionName, dataToSave);
       lastSyncedData.current = JSON.stringify(dataToSave);
-      await saveWeddingPlan(syncKey.trim(), dataToSave);
       setSyncStatus('synced');
-      alert("成功將當前本地的所有籌備資料上傳備份至雲端！");
+      alert("儲存成功！目前的籌備資料已同步至雲端。");
     } catch (err: any) {
       setSyncStatus('error');
-      setSyncError(`上傳失敗: ${err.message}`);
-      alert(`上傳失敗: ${err.message}`);
+      setSyncError(`儲存失敗: ${err.message}`);
+      alert(`儲存失敗: ${err.message}`);
     }
   };
 
   const handleManualDownload = async () => {
-    if (!syncKey.trim()) {
-      alert("請先輸入您的婚禮同步金鑰！");
+    if (!isSyncEnabled || !activeCollectionName) {
+      alert("請先確認使用者名稱及婚禮同步金鑰！");
       return;
     }
-    if (!window.confirm("確定要從雲端下載並【覆蓋】您目前這台設備上的所有資料嗎？(此動作無法復原)")) {
+    if (!window.confirm("確定要從雲端同步並【覆蓋】您目前這台設備上的所有資料嗎？(此動作無法復原)")) {
       return;
     }
     try {
       setSyncStatus('loading');
-      const cloudData = await loadWeddingPlan(syncKey.trim());
+      const cloudData = await loadWeddingPlan(activeCollectionName);
       if (!cloudData) {
-        alert("雲端尚無此金鑰的任何資料，無法下載覆蓋。");
+        alert("雲端尚無此帳戶的資料，無法同步覆蓋。");
         setSyncStatus('offline');
         return;
       }
@@ -325,11 +327,11 @@ export default function App() {
       setResponseFilterRules(incomingData.responseFilterRules || []);
       
       setSyncStatus('synced');
-      alert("成功從雲端下載最新的籌備資料，已為您覆蓋本地！");
+      alert("已成功從雲端同步最新籌備資料並覆蓋本機資料！");
     } catch (err: any) {
       setSyncStatus('error');
-      setSyncError(`下載失敗: ${err.message}`);
-      alert(`下載失敗: ${err.message}`);
+      setSyncError(`雲端同步失敗: ${err.message}`);
+      alert(`雲端同步失敗: ${err.message}`);
     }
   };
 
@@ -471,7 +473,7 @@ export default function App() {
     <div id="wedding_app_container" className="min-h-screen bg-[#FAF8F5] text-[#4A443F] flex flex-col pb-12 antialiased">
       <div className="absolute top-0 inset-x-0 h-64 bg-gradient-to-b from-[#8E9E8C]/10 via-[#F2EDE4]/30 to-transparent pointer-events-none" />
 
-      <header className="relative bg-[#F2EDE4]/80 backdrop-blur-md border-b border-[#E2D9CD] px-6 py-4">
+      <header className={`relative bg-[#F2EDE4]/80 backdrop-blur-md border-b border-[#E2D9CD] px-6 py-4 transition ${!isSyncEnabled ? 'pointer-events-none opacity-50' : ''}`} aria-disabled={!isSyncEnabled}>
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           
           <div className="flex items-center gap-3">
@@ -527,7 +529,7 @@ export default function App() {
 
       <main className="relative flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 pt-6">
         
-        <div className="bg-white border border-[#F0EBE4] rounded-[2rem] p-6 shadow-xs mb-6 flex flex-col md:flex-row justify-between items-center gap-4 relative overflow-hidden">
+        <div className={`bg-white border border-[#F0EBE4] rounded-[2rem] p-6 shadow-xs mb-6 flex flex-col md:flex-row justify-between items-center gap-4 relative overflow-hidden transition ${!isSyncEnabled ? 'pointer-events-none opacity-50' : ''}`} aria-disabled={!isSyncEnabled}>
           <div className="absolute top-0 left-0 h-1.5 w-full bg-[#8E9E8C]" />
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-[#F5F8F5] flex items-center justify-center text-[#8E9E8C]">
@@ -585,11 +587,11 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <Database className="w-5 h-5 text-[#8E9E8C]" />
                 <h3 className="text-sm font-semibold font-serif text-[#5E564E] tracking-tight">
-                  Firebase 雲端同步與多人即時協作
+                  Firebase 雲端儲存與協作
                 </h3>
               </div>
               <p className="text-xs text-[#A6998A] leading-relaxed">
-                在不同裝置（如：新郎電腦與新娘手機）輸入同一個專屬金鑰，即可實現多人實時編輯、即時安排桌位與更新籌備進度！
+                輸入相同的使用者名稱與專屬金鑰，即可使用同一份雲端婚禮資料。修改只會在按下「儲存」後寫入雲端。
               </p>
               
               <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -597,7 +599,7 @@ export default function App() {
                 {syncStatus === 'offline' && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-stone-100 border border-stone-200 text-stone-600 text-[10px] font-medium">
                     <CloudOff className="w-3 h-3 text-stone-400" />
-                    本機單機模式 (不儲存至雲端)
+                    本機單機模式（不儲存至雲端）
                   </span>
                 )}
                 {syncStatus === 'loading' && (
@@ -609,7 +611,19 @@ export default function App() {
                 {syncStatus === 'synced' && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#F5F8F5] border border-[#E2D9CD]/50 text-[#8E9E8C] text-[10px] font-bold">
                     <Cloud className="w-3 h-3 text-[#8E9E8C]" />
-                    已連線 (即時同步中)
+                    已連線：{activeCollectionName}
+                  </span>
+                )}
+                {hasUnsavedChanges && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold" role="status">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" aria-hidden="true" />
+                    有尚未儲存的變更
+                  </span>
+                )}
+                {syncStatus === 'synced' && !hasUnsavedChanges && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 text-[10px] font-medium" role="status">
+                    <CheckCircle2 className="w-3 h-3" />
+                    所有變更已儲存
                   </span>
                 )}
                 {syncStatus === 'error' && (
@@ -626,66 +640,81 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex-1 max-w-lg bg-[#FAF8F5] border border-[#F0EBE4] p-4 rounded-2xl flex flex-col sm:flex-row items-end gap-3.5">
-              <div className="flex-1 w-full space-y-1.5">
+            <div className="flex-1 max-w-2xl bg-[#FAF8F5] border border-[#F0EBE4] p-4 rounded-2xl space-y-3">
+              <div className="grid sm:grid-cols-2 gap-3">
+              <div className="w-full space-y-1.5">
                 <label className="block text-[10px] font-bold text-[#A6998A] uppercase tracking-wider">
-                  🔑 您的專屬婚禮同步金鑰 (自訂英文/數字)
+                  👤 使用者名稱（必填）
                 </label>
                 <input
                   type="text"
-                  placeholder="例如：our-big-day-2026"
-                  value={syncKey}
-                  onChange={(e) => {
-                    setSyncKey(e.target.value.trim());
-                    if (isSyncEnabled) {
-                      setIsSyncEnabled(false);
-                      setSyncStatus('offline');
-                    }
-                  }}
-                  className="w-full px-3 py-2 text-xs bg-white border border-[#E2D9CD] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8E9E8C] font-mono"
+                  placeholder="例如：marry"
+                  value={username}
+                  disabled={isSyncEnabled}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-white border border-[#E2D9CD] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8E9E8C] font-mono disabled:bg-stone-100 disabled:text-stone-500"
                 />
               </div>
+              <div className="w-full space-y-1.5">
+                <label className="block text-[10px] font-bold text-[#A6998A] uppercase tracking-wider">
+                  🔑 專屬婚禮同步金鑰（必填）
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="例如：our-big-day-2026"
+                    value={syncKey}
+                    disabled={isSyncEnabled}
+                    onChange={(e) => setSyncKey(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleConfirmCredentials()}
+                    className="w-full pl-3 pr-11 py-2 text-xs bg-white border border-[#E2D9CD] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8E9E8C] font-mono disabled:bg-stone-100 disabled:text-stone-500"
+                  />
+                  <button
+                    onClick={handleConfirmCredentials}
+                    disabled={isSyncEnabled || !username.trim() || !syncKey.trim()}
+                    className="absolute right-1 top-1 bottom-1 aspect-square flex items-center justify-center bg-[#8E9E8C] hover:bg-[#7D8C7C] text-white rounded-lg transition disabled:bg-stone-300 disabled:cursor-not-allowed"
+                    title="確認並連接雲端資料"
+                    aria-label="確認使用者名稱及同步金鑰"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              </div>
 
-              <div className="flex w-full sm:w-auto gap-2 shrink-0">
-                {isSyncEnabled ? (
+              <div className="flex flex-wrap justify-end gap-2">
+                {isSyncEnabled && (
                   <button
                     onClick={() => {
+                      if (hasUnsavedChanges && !window.confirm('目前有尚未儲存的變更，確定要更改帳戶資料嗎？')) return;
                       setIsSyncEnabled(false);
+                      setActiveCollectionName('');
                       setSyncStatus('offline');
                     }}
-                    className="flex-1 sm:flex-initial px-3.5 py-2 bg-stone-200 hover:bg-stone-300 text-stone-700 text-xs font-semibold rounded-xl transition cursor-pointer"
+                    className="px-3.5 py-2 bg-stone-200 hover:bg-stone-300 text-stone-700 text-xs font-semibold rounded-xl transition cursor-pointer"
                   >
-                    中斷同步
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      if (!syncKey.trim()) {
-                        alert("請先輸入金鑰名稱！");
-                        return;
-                      }
-                      setIsSyncEnabled(true);
-                    }}
-                    className="flex-1 sm:flex-initial px-3.5 py-2 bg-[#8E9E8C] hover:bg-[#7D8C7C] text-white text-xs font-semibold rounded-xl transition cursor-pointer flex items-center justify-center gap-1 shadow-xs"
-                  >
-                    <Cloud className="w-3.5 h-3.5" />
-                    啟動同步
+                    更改帳戶資料
                   </button>
                 )}
 
                 <button
                   onClick={handleManualUpload}
-                  className="px-2.5 py-2 bg-white hover:bg-[#F2EDE4]/30 border border-[#E2D9CD] text-[#5E564E] text-xs font-semibold rounded-xl transition cursor-pointer"
-                  title="將當前本地資料上傳覆蓋雲端"
+                  disabled={!isSyncEnabled}
+                  className="relative px-3.5 py-2 bg-[#8E9E8C] hover:bg-[#7D8C7C] text-white text-xs font-semibold rounded-xl transition cursor-pointer disabled:bg-stone-300 disabled:cursor-not-allowed"
+                  title="將目前資料儲存至雲端"
                 >
-                  上傳
+                  {hasUnsavedChanges && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-white" aria-hidden="true" />
+                  )}
+                  儲存
                 </button>
                 <button
                   onClick={handleManualDownload}
-                  className="px-2.5 py-2 bg-white hover:bg-[#F2EDE4]/30 border border-[#E2D9CD] text-[#5E564E] text-xs font-semibold rounded-xl transition cursor-pointer"
-                  title="從雲端下載最新資料覆蓋本地"
+                  disabled={!isSyncEnabled}
+                  className="px-3.5 py-2 bg-white hover:bg-[#F2EDE4]/30 border border-[#E2D9CD] text-[#5E564E] text-xs font-semibold rounded-xl transition cursor-pointer disabled:bg-stone-100 disabled:text-stone-400 disabled:cursor-not-allowed"
+                  title="從雲端同步最新資料並覆蓋本機"
                 >
-                  下載
+                  從雲端同步
                 </button>
               </div>
             </div>
@@ -693,7 +722,10 @@ export default function App() {
           </div>
         </div>
 
-        <div className="bg-[#F2EDE4]/70 p-1 rounded-2xl border border-[#E2D9CD] flex gap-1 mb-6 max-w-3xl mx-auto w-full">
+        {!isSyncEnabled && (
+          <p className="mb-4 text-center text-xs font-medium text-[#8C745A]">請先填寫使用者名稱與同步金鑰，並按下 ✓ 解鎖婚禮籌備內容。</p>
+        )}
+        <div className={`bg-[#F2EDE4]/70 p-1 rounded-2xl border border-[#E2D9CD] flex gap-1 mb-6 max-w-3xl mx-auto w-full transition ${!isSyncEnabled ? 'pointer-events-none opacity-50' : ''}`} aria-disabled={!isSyncEnabled}>
           <button
             id="btn_tab_todo"
             onClick={() => setActiveTab('todo')}
@@ -744,7 +776,7 @@ export default function App() {
           </button>
         </div>
 
-        <div className="w-full">
+        <div className={`w-full transition ${!isSyncEnabled ? 'pointer-events-none opacity-40 select-none' : ''}`} aria-disabled={!isSyncEnabled}>
           {activeTab === 'todo' && (
             <TodoList 
               tasks={tasks} 
