@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { TableItem, TableStatus, TableAssignments, DEFAULT_ZONES } from '../types';
+import { TableItem, TableStatus, TableAssignments, DEFAULT_ZONES, GuestImportCandidate } from '../types';
 import { 
   Users, 
   UserPlus, 
@@ -26,9 +26,10 @@ import { motion, AnimatePresence } from 'motion/react';
 interface TablePlannerProps {
   tableAssignments: TableAssignments;
   setTableAssignments: React.Dispatch<React.SetStateAction<TableAssignments>>;
+  responseGuests?: GuestImportCandidate[];
 }
 
-export default function TablePlanner({ tableAssignments, setTableAssignments }: TablePlannerProps) {
+export default function TablePlanner({ tableAssignments, setTableAssignments, responseGuests = [] }: TablePlannerProps) {
   const { tables, table_size_limit } = tableAssignments;
   
   const [selectedTableNo, setSelectedTableNo] = useState<number | null>(tables[0]?.table_no || null);
@@ -218,6 +219,70 @@ export default function TablePlanner({ tableAssignments, setTableAssignments }: 
 
   // Find currently selected table
   const selectedTable = tables.find(t => t.table_no === selectedTableNo);
+  const seatedGuestNames = new Set(
+    tables.flatMap(t => t.guests.map(g => g.name.trim().toLowerCase()).filter(Boolean))
+  );
+  const availableResponseGuests = responseGuests.filter(candidate => {
+    const nameKey = candidate.name.trim().toLowerCase();
+    return nameKey && !seatedGuestNames.has(nameKey);
+  });
+
+  const handleImportResponseGuest = (tableNo: number, candidate: GuestImportCandidate) => {
+    const name = candidate.name.trim();
+    const nameKey = name.toLowerCase();
+    if (!nameKey) return;
+
+    const alreadySeated = tableAssignments.tables.some(table =>
+      table.guests.some(guest => guest.name.trim().toLowerCase() === nameKey)
+    );
+
+    if (alreadySeated) {
+      alert(`${name} 已經在座位表中`);
+      return;
+    }
+
+    const newGuest = {
+      id: `g_response_${candidate.id}_${Date.now()}`,
+      name,
+      notes: candidate.notes || candidate.sourceLabel || ''
+    };
+
+    setTableAssignments(prev => ({
+      ...prev,
+      tables: prev.tables.map(table => table.table_no === tableNo
+        ? { ...table, guests: [...table.guests, newGuest] }
+        : table
+      )
+    }));
+  };
+
+  const handleImportAllResponseGuests = (tableNo: number) => {
+    if (availableResponseGuests.length === 0) return;
+
+    setTableAssignments(prev => {
+      const currentNames = new Set(
+        prev.tables.flatMap(table => table.guests.map(guest => guest.name.trim().toLowerCase()).filter(Boolean))
+      );
+
+      const guestsToAdd = availableResponseGuests
+        .filter(candidate => !currentNames.has(candidate.name.trim().toLowerCase()))
+        .map(candidate => ({
+          id: `g_response_${candidate.id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          name: candidate.name.trim(),
+          notes: candidate.notes || candidate.sourceLabel || ''
+        }));
+
+      if (guestsToAdd.length === 0) return prev;
+
+      return {
+        ...prev,
+        tables: prev.tables.map(table => table.table_no === tableNo
+          ? { ...table, guests: [...table.guests, ...guestsToAdd] }
+          : table
+        )
+      };
+    });
+  };
 
   // Layout calculations for interactive circular table seating visualization
   const renderVisualTable = (table: TableItem) => {
@@ -655,6 +720,74 @@ export default function TablePlanner({ tableAssignments, setTableAssignments }: 
 
         {/* Quick Allocation & Stats (5 cols) */}
         <div className="lg:col-span-5 flex flex-col gap-4">
+          <div className="border border-[#E2D9CD] rounded-[2rem] p-5 bg-white space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-xs font-semibold text-[#5E564E] flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-[#8E9E8C]" />
+                  表單名單池
+                </h3>
+                <p className="text-[10px] text-[#A6998A] mt-1">
+                  使用回覆清單目前篩選後的名單
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={!selectedTable || availableResponseGuests.length === 0}
+                onClick={() => selectedTable && handleImportAllResponseGuests(selectedTable.table_no)}
+                className="px-3 py-1.5 bg-[#8E9E8C] hover:bg-[#7D8C7C] disabled:bg-stone-200 disabled:text-stone-400 text-white rounded-lg text-[10px] font-semibold transition"
+              >
+                全部加入此桌
+              </button>
+            </div>
+
+            {responseGuests.length === 0 ? (
+              <div className="border border-dashed border-[#E2D9CD] rounded-2xl p-4 text-center text-xs text-[#A6998A] bg-[#FAF8F5]">
+                請先到「回覆清單」讀取表單，並設定姓名欄位與篩選條件。
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-[#FAF8F5] border border-[#F0EBE4] rounded-xl p-2 text-center">
+                    <span className="block text-[10px] text-[#A6998A]">篩選名單</span>
+                    <span className="font-mono text-sm font-bold text-[#5E564E]">{responseGuests.length}</span>
+                  </div>
+                  <div className="bg-[#F5F8F5] border border-[#E2D9CD]/60 rounded-xl p-2 text-center">
+                    <span className="block text-[10px] text-[#A6998A]">尚未入座</span>
+                    <span className="font-mono text-sm font-bold text-[#8E9E8C]">{availableResponseGuests.length}</span>
+                  </div>
+                </div>
+
+                <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+                  {responseGuests.map(candidate => {
+                    const nameKey = candidate.name.trim().toLowerCase();
+                    const isSeated = seatedGuestNames.has(nameKey);
+                    return (
+                      <div key={candidate.id} className="flex items-start justify-between gap-2 border border-[#F0EBE4] rounded-xl p-3 bg-[#FAF8F5]">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-[#4A443F] truncate">{candidate.name}</p>
+                          {(candidate.notes || candidate.sourceLabel) && (
+                            <p className="text-[10px] text-[#A6998A] mt-1 line-clamp-2">{candidate.notes || candidate.sourceLabel}</p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          disabled={!selectedTable || isSeated}
+                          onClick={() => selectedTable && handleImportResponseGuest(selectedTable.table_no, candidate)}
+                          className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-[#F2EDE4]/40 disabled:bg-stone-100 disabled:text-stone-400 border border-[#E2D9CD] text-[#8C745A] rounded-lg text-[10px] font-semibold transition"
+                          title={isSeated ? '已在座位表中' : '加入目前選取的桌'}
+                        >
+                          <UserPlus className="w-3 h-3" />
+                          {isSeated ? '已入座' : '加入'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Quick Helper Panel */}
           <div className="border border-[#E2D9CD] rounded-[2rem] p-5 bg-[#FAF8F5]">
             <h3 className="text-xs font-semibold text-[#5E564E] flex items-center gap-1.5 mb-2">

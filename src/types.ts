@@ -47,6 +47,46 @@ export interface TableAssignments {
   table_size_limit: number;
   tables: TableItem[];
 }
+export interface ResponseSourceConfig {
+  sheetUrl: string;
+  spreadsheetId: string;
+  gid?: string;
+  sheetName?: string;
+  range: string;
+  lastLoadedAt?: string;
+}
+
+export interface ResponseFieldMapping {
+  nameField: string;
+  phoneField?: string;
+  emailField?: string;
+  attendanceField?: string;
+  countField?: string;
+  notesField?: string;
+}
+
+export type ResponseFilterOperator = 'equals' | 'contains' | 'not_equals' | 'not_empty';
+
+export interface ResponseFilterRule {
+  id: string;
+  field: string;
+  operator: ResponseFilterOperator;
+  value: string;
+}
+
+export interface FormResponseRow {
+  id: string;
+  rowNumber: number;
+  values: Record<string, string>;
+}
+
+export interface GuestImportCandidate {
+  id: string;
+  name: string;
+  notes?: string;
+  sourceLabel?: string;
+  response: FormResponseRow;
+}
 
 export const DEFAULT_CATEGORIES = [
   '場地與餐宴',

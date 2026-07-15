@@ -7,7 +7,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import TodoList from './components/TodoList';
 import TablePlanner from './components/TablePlanner';
 import WeddingCalendar from './components/WeddingCalendar';
-import { TodoItem, TableAssignments, DEFAULT_CATEGORIES, CalendarEvent } from './types';
+import ResponseList, { filterResponses } from './components/ResponseList';
+import {
+  TodoItem,
+  TableAssignments,
+  DEFAULT_CATEGORIES,
+  CalendarEvent,
+  FormResponseRow,
+  GuestImportCandidate,
+  ResponseFieldMapping,
+  ResponseFilterRule,
+  ResponseSourceConfig
+} from './types';
 import { 
   Heart, 
   Calendar, 
@@ -23,7 +34,8 @@ import {
   Users,
   Cloud,
   CloudOff,
-  Database
+  Database,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { saveWeddingPlan, loadWeddingPlan, subscribeWeddingPlan, WeddingPlanData } from './lib/firebase';
@@ -81,7 +93,32 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [activeTab, setActiveTab] = useState<'todo' | 'calendar' | 'table'>('todo');
+  const [responseSourceConfig, setResponseSourceConfig] = useState<ResponseSourceConfig>(() => {
+    const saved = localStorage.getItem('wedding_response_source_config');
+    return saved ? JSON.parse(saved) : { sheetUrl: '', spreadsheetId: '', range: 'A:Z' };
+  });
+
+  const [responseHeaders, setResponseHeaders] = useState<string[]>(() => {
+    const saved = localStorage.getItem('wedding_response_headers');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [formResponses, setFormResponses] = useState<FormResponseRow[]>(() => {
+    const saved = localStorage.getItem('wedding_form_responses');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [responseFieldMapping, setResponseFieldMapping] = useState<ResponseFieldMapping>(() => {
+    const saved = localStorage.getItem('wedding_response_field_mapping');
+    return saved ? JSON.parse(saved) : { nameField: '' };
+  });
+
+  const [responseFilterRules, setResponseFilterRules] = useState<ResponseFilterRule[]>(() => {
+    const saved = localStorage.getItem('wedding_response_filter_rules');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [activeTab, setActiveTab] = useState<'todo' | 'calendar' | 'responses' | 'table'>('todo');
 
   const [isExporting, setIsExporting] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -124,7 +161,12 @@ export default function App() {
           categories: cloudData.categories !== undefined ? cloudData.categories : DEFAULT_CATEGORIES,
           tasks: cloudData.tasks !== undefined ? cloudData.tasks : [],
           tableAssignments: cloudData.tableAssignments !== undefined ? cloudData.tableAssignments : { table_size_limit: 12, tables: [] },
-          calendarEvents: cloudData.calendarEvents !== undefined ? cloudData.calendarEvents : []
+          calendarEvents: cloudData.calendarEvents !== undefined ? cloudData.calendarEvents : [],
+          responseSourceConfig: cloudData.responseSourceConfig !== undefined ? cloudData.responseSourceConfig : { sheetUrl: '', spreadsheetId: '', range: 'A:Z' },
+          responseHeaders: cloudData.responseHeaders !== undefined ? cloudData.responseHeaders : [],
+          formResponses: cloudData.formResponses !== undefined ? cloudData.formResponses : [],
+          responseFieldMapping: cloudData.responseFieldMapping !== undefined ? cloudData.responseFieldMapping : { nameField: '' },
+          responseFilterRules: cloudData.responseFilterRules !== undefined ? cloudData.responseFilterRules : []
         };
         
         const incomingStr = JSON.stringify(incomingData);
@@ -145,6 +187,11 @@ export default function App() {
         setTasks(incomingData.tasks!);
         setTableAssignments(incomingData.tableAssignments!);
         setCalendarEvents(incomingData.calendarEvents!);
+        setResponseSourceConfig(incomingData.responseSourceConfig || { sheetUrl: '', spreadsheetId: '', range: 'A:Z' });
+        setResponseHeaders(incomingData.responseHeaders || []);
+        setFormResponses(incomingData.formResponses || []);
+        setResponseFieldMapping(incomingData.responseFieldMapping || { nameField: '' });
+        setResponseFilterRules(incomingData.responseFilterRules || []);
 
         setSyncStatus('synced');
       },
@@ -174,7 +221,12 @@ export default function App() {
       categories,
       tasks,
       tableAssignments,
-      calendarEvents
+      calendarEvents,
+      responseSourceConfig,
+      responseHeaders,
+      formResponses,
+      responseFieldMapping,
+      responseFilterRules
     };
     
     const currentStr = JSON.stringify(currentData);
@@ -196,7 +248,7 @@ export default function App() {
     }, 800);
 
     return () => clearTimeout(timeoutId);
-  }, [tasks, tableAssignments, weddingDate, categories, calendarEvents, isSyncEnabled, syncKey, syncStatus]);
+  }, [tasks, tableAssignments, weddingDate, categories, calendarEvents, responseSourceConfig, responseHeaders, formResponses, responseFieldMapping, responseFilterRules, isSyncEnabled, syncKey, syncStatus]);
 
   const handleManualUpload = async () => {
     if (!syncKey.trim()) {
@@ -210,8 +262,13 @@ export default function App() {
         categories,
         tasks,
         tableAssignments,
-        calendarEvents
-      };
+        calendarEvents,
+      responseSourceConfig,
+      responseHeaders,
+      formResponses,
+      responseFieldMapping,
+      responseFilterRules
+    };
       
       lastSyncedData.current = JSON.stringify(dataToSave);
       await saveWeddingPlan(syncKey.trim(), dataToSave);
@@ -246,7 +303,12 @@ export default function App() {
         categories: cloudData.categories !== undefined ? cloudData.categories : DEFAULT_CATEGORIES,
         tasks: cloudData.tasks !== undefined ? cloudData.tasks : [],
         tableAssignments: cloudData.tableAssignments !== undefined ? cloudData.tableAssignments : { table_size_limit: 12, tables: [] },
-        calendarEvents: cloudData.calendarEvents !== undefined ? cloudData.calendarEvents : []
+        calendarEvents: cloudData.calendarEvents !== undefined ? cloudData.calendarEvents : [],
+          responseSourceConfig: cloudData.responseSourceConfig !== undefined ? cloudData.responseSourceConfig : { sheetUrl: '', spreadsheetId: '', range: 'A:Z' },
+          responseHeaders: cloudData.responseHeaders !== undefined ? cloudData.responseHeaders : [],
+          formResponses: cloudData.formResponses !== undefined ? cloudData.formResponses : [],
+          responseFieldMapping: cloudData.responseFieldMapping !== undefined ? cloudData.responseFieldMapping : { nameField: '' },
+          responseFilterRules: cloudData.responseFilterRules !== undefined ? cloudData.responseFilterRules : []
       };
 
       lastSyncedData.current = JSON.stringify(incomingData);
@@ -256,6 +318,11 @@ export default function App() {
       setTasks(incomingData.tasks!);
       setTableAssignments(incomingData.tableAssignments!);
       setCalendarEvents(incomingData.calendarEvents!);
+      setResponseSourceConfig(incomingData.responseSourceConfig || { sheetUrl: '', spreadsheetId: '', range: 'A:Z' });
+      setResponseHeaders(incomingData.responseHeaders || []);
+      setFormResponses(incomingData.formResponses || []);
+      setResponseFieldMapping(incomingData.responseFieldMapping || { nameField: '' });
+      setResponseFilterRules(incomingData.responseFilterRules || []);
       
       setSyncStatus('synced');
       alert("成功從雲端下載最新的籌備資料，已為您覆蓋本地！");
@@ -287,6 +354,50 @@ export default function App() {
     localStorage.setItem('wedding_calendar_events', JSON.stringify(calendarEvents));
   }, [calendarEvents]);
 
+  useEffect(() => {
+    localStorage.setItem('wedding_response_source_config', JSON.stringify(responseSourceConfig));
+  }, [responseSourceConfig]);
+
+  useEffect(() => {
+    localStorage.setItem('wedding_response_headers', JSON.stringify(responseHeaders));
+  }, [responseHeaders]);
+
+  useEffect(() => {
+    localStorage.setItem('wedding_form_responses', JSON.stringify(formResponses));
+  }, [formResponses]);
+
+  useEffect(() => {
+    localStorage.setItem('wedding_response_field_mapping', JSON.stringify(responseFieldMapping));
+  }, [responseFieldMapping]);
+
+  useEffect(() => {
+    localStorage.setItem('wedding_response_filter_rules', JSON.stringify(responseFilterRules));
+  }, [responseFilterRules]);
+
+  const filteredResponseGuestCandidates: GuestImportCandidate[] = filterResponses(formResponses, responseFilterRules)
+    .map((row): GuestImportCandidate | null => {
+      const nameField = responseFieldMapping.nameField;
+      const name = nameField ? (row.values[nameField] || '').trim() : '';
+      if (!name) return null;
+
+      const notes = [
+        responseFieldMapping.attendanceField ? row.values[responseFieldMapping.attendanceField] : '',
+        responseFieldMapping.countField ? `人數 ${row.values[responseFieldMapping.countField]}` : '',
+        responseFieldMapping.phoneField ? row.values[responseFieldMapping.phoneField] : '',
+        responseFieldMapping.emailField ? row.values[responseFieldMapping.emailField] : '',
+        responseFieldMapping.notesField ? row.values[responseFieldMapping.notesField] : '',
+      ].filter(Boolean).join(' / ');
+
+      return {
+        id: row.id,
+        name,
+        notes,
+        sourceLabel: `表單第 ${row.rowNumber} 列`,
+        response: row,
+      };
+    })
+    .filter((candidate): candidate is GuestImportCandidate => Boolean(candidate));
+
   const getDaysRemaining = () => {
     if (!weddingDate) return null;
     const wedding = new Date(weddingDate);
@@ -306,6 +417,11 @@ export default function App() {
       setWeddingDate('');
       setCategories(DEFAULT_CATEGORIES);
       setCalendarEvents([]);
+      setResponseSourceConfig({ sheetUrl: '', spreadsheetId: '', range: 'A:Z' });
+      setResponseHeaders([]);
+      setFormResponses([]);
+      setResponseFieldMapping({ nameField: '' });
+      setResponseFilterRules([]);
       setActiveTab('todo');
     }
   };
@@ -577,7 +693,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="bg-[#F2EDE4]/70 p-1 rounded-2xl border border-[#E2D9CD] flex gap-1 mb-6 max-w-xl mx-auto w-full">
+        <div className="bg-[#F2EDE4]/70 p-1 rounded-2xl border border-[#E2D9CD] flex gap-1 mb-6 max-w-3xl mx-auto w-full">
           <button
             id="btn_tab_todo"
             onClick={() => setActiveTab('todo')}
@@ -601,6 +717,18 @@ export default function App() {
           >
             <Calendar className="w-3.5 h-3.5" />
             籌備日曆
+          </button>
+          <button
+            id="btn_tab_responses"
+            onClick={() => setActiveTab('responses')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-semibold transition cursor-pointer ${
+              activeTab === 'responses'
+                ? 'bg-white text-[#5E564E] shadow-xs border border-[#E2D9CD]/50'
+                : 'text-[#8C745A] hover:bg-white/40'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            回覆清單
           </button>
           <button
             id="btn_tab_table"
@@ -632,10 +760,25 @@ export default function App() {
               setCalendarEvents={setCalendarEvents} 
             />
           )}
+          {activeTab === 'responses' && (
+            <ResponseList
+              sourceConfig={responseSourceConfig}
+              setSourceConfig={setResponseSourceConfig}
+              headers={responseHeaders}
+              setHeaders={setResponseHeaders}
+              responses={formResponses}
+              setResponses={setFormResponses}
+              fieldMapping={responseFieldMapping}
+              setFieldMapping={setResponseFieldMapping}
+              filterRules={responseFilterRules}
+              setFilterRules={setResponseFilterRules}
+            />
+          )}
           {activeTab === 'table' && (
             <TablePlanner 
               tableAssignments={tableAssignments} 
-              setTableAssignments={setTableAssignments} 
+              setTableAssignments={setTableAssignments}
+              responseGuests={filteredResponseGuestCandidates}
             />
           )}
         </div>

@@ -44,6 +44,11 @@ export interface WeddingPlanData {
   tasks: any[];
   tableAssignments: any;
   calendarEvents: any[];
+  responseSourceConfig?: any;
+  responseHeaders?: string[];
+  formResponses?: any[];
+  responseFieldMapping?: any;
+  responseFilterRules?: any[];
   updatedAt?: any;
 }
 
