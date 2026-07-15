@@ -642,13 +642,13 @@ export default function TodoList({
               <p className="text-sm text-[#A6998A]">沒有符合篩選條件的待辦事項</p>
             </div>
           ) : (
-            filteredTasks.map(task => {
+            filteredTasks.map((task, taskIndex) => {
               const { bg, icon } = getStatusStyle(task.status);
               const isEditing = editingId === task.id;
 
               return (
                 <motion.div
-                  key={task.id}
+                  key={task.id || `legacy_task_${taskIndex}`}
                   id={`task_card_${task.id}`}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}

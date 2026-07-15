@@ -3,6 +3,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /wedding_plans/{documentId} {
       allow read, write: if true;
+
+      match /sections/{sectionId} {
+        allow read, write: if true;
+      }
     }
   }
 }

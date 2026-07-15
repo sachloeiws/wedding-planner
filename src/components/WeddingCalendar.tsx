@@ -404,11 +404,11 @@ export default function WeddingCalendar({
                       key={ev.id}
                       className="flex items-center justify-between p-3 bg-white border border-[#F0EBE4] rounded-xl hover:border-[#D4A373]/40 transition group"
                     >
-                      <div className="flex items-start gap-2.5">
+                      <div className="flex items-start gap-2.5 min-w-0">
                         <div className="w-7 h-7 rounded-lg bg-[#FAF5EE] flex items-center justify-center text-[#D4A373] shrink-0">
                           <Clock className="w-4 h-4" />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FAF5EE] text-[#8C745A] border border-[#E8DFD1] font-mono font-bold">{getEventTime(ev)}</span>
                             <span className="text-xs font-semibold text-[#5E564E]">{ev.title}</span>
@@ -437,11 +437,11 @@ export default function WeddingCalendar({
                       key={task.id}
                       className="flex items-center justify-between p-3 bg-white border border-[#F0EBE4] rounded-xl hover:border-[#8E9E8C]/40 transition"
                     >
-                      <div className="flex items-start gap-2.5">
+                      <div className="flex items-start gap-2.5 min-w-0">
                         <div className="w-7 h-7 rounded-lg bg-[#F5F8F5] flex items-center justify-center text-[#8E9E8C] shrink-0">
                           <ClipboardList className="w-4 h-4" />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-xs font-semibold text-[#5E564E]">{task.title}</span>
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#F5F8F5] text-[#7D8C7C] border border-[#E2D9CD]/30">

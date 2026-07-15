@@ -551,18 +551,18 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
           {selectedTable ? (
             <div className="flex flex-col h-full">
               {/* Header inside detailed view */}
-              <div className="flex justify-between items-start border-b border-[#E2D9CD]/60 pb-3 mb-4">
-                <div>
-                  <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 border-b border-[#E2D9CD]/60 pb-3 mb-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
                     <span className="font-serif text-lg font-bold text-[#5E564E]">第 {selectedTable.table_no} 桌</span>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#F2EDE4] text-[#8C745A] font-medium flex items-center gap-1">
+                    <span className="min-w-0 text-xs px-2.5 py-0.5 rounded-full bg-[#F2EDE4] text-[#8C745A] font-medium flex items-center gap-1 truncate">
                       <MapPin className="w-3 h-3" />
                       {selectedTable.zone}
                     </span>
                   </div>
                   <p className="text-[11px] text-[#A6998A] mt-1">賓客座位安排明細</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 self-end sm:self-auto">
                   {getStatusBadge(getTableStatus(selectedTable.guests.length), selectedTable.guests.length)}
                   <button
                     id={`btn_delete_table_${selectedTable.table_no}`}
@@ -596,7 +596,7 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
                         }
                       }
                     }}
-                    className="flex-1 px-3 py-1.5 text-xs bg-white border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C] focus:border-[#8E9E8C]"
+                    className="flex-1 min-w-0 px-3 py-1.5 text-xs bg-white border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C] focus:border-[#8E9E8C]"
                   />
                   <button
                     id={`btn_submit_guest_${selectedTable.table_no}`}
