@@ -11,7 +11,6 @@ import ResponseList, { filterResponses } from './components/ResponseList';
 import {
   TodoItem,
   TableAssignments,
-  DEFAULT_CATEGORIES,
   CalendarEvent,
   FormResponseRow,
   GuestImportCandidate,
@@ -39,6 +38,25 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { saveWeddingPlan, loadWeddingPlan, subscribeWeddingPlan, WeddingPlanData } from './lib/firebase';
+
+const getTodayDate = () => {
+  const today = new Date();
+  const offset = today.getTimezoneOffset() * 60_000;
+  return new Date(today.getTime() - offset).toISOString().slice(0, 10);
+};
+
+const getEmptyPlanData = (): WeddingPlanData => ({
+  weddingDate: getTodayDate(),
+  categories: [],
+  tasks: [],
+  tableAssignments: { table_size_limit: 12, tables: [] },
+  calendarEvents: [],
+  responseSourceConfig: { sheetUrl: '', spreadsheetId: '', range: '' },
+  responseHeaders: [],
+  formResponses: [],
+  responseFieldMapping: { nameField: '' },
+  responseFilterRules: []
+});
 
 export default function App() {
   // Empty default tasks
@@ -79,13 +97,13 @@ export default function App() {
 
   const [weddingDate, setWeddingDate] = useState<string>(() => {
     const saved = localStorage.getItem('wedding_date');
-    return saved ? saved : '';
+    return saved || getTodayDate();
   });
 
   // Restored Default Categories
   const [categories, setCategories] = useState<string[]>(() => {
     const saved = localStorage.getItem('wedding_categories');
-    return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(() => {
@@ -95,7 +113,7 @@ export default function App() {
 
   const [responseSourceConfig, setResponseSourceConfig] = useState<ResponseSourceConfig>(() => {
     const saved = localStorage.getItem('wedding_response_source_config');
-    return saved ? JSON.parse(saved) : { sheetUrl: '', spreadsheetId: '', range: 'A:Z' };
+    return saved ? JSON.parse(saved) : { sheetUrl: '', spreadsheetId: '', range: '' };
   });
 
   const [responseHeaders, setResponseHeaders] = useState<string[]>(() => {
@@ -133,7 +151,7 @@ export default function App() {
   const [isSyncEnabled, setIsSyncEnabled] = useState<boolean>(() => {
     return false;
   });
-  const [activeCollectionName, setActiveCollectionName] = useState('');
+  const [activeDocumentId, setActiveDocumentId] = useState('');
   const [syncStatus, setSyncStatus] = useState<'offline' | 'loading' | 'synced' | 'error'>('offline');
   const [syncError, setSyncError] = useState<string>('');
   
@@ -141,7 +159,7 @@ export default function App() {
   const lastSyncedData = useRef<string>('');
 
   useEffect(() => {
-    if (!isSyncEnabled || !activeCollectionName) {
+    if (!isSyncEnabled || !activeDocumentId) {
       setSyncStatus('offline');
       return;
     }
@@ -150,12 +168,13 @@ export default function App() {
     setSyncError('');
 
     const unsubscribe = subscribeWeddingPlan(
-      activeCollectionName,
+      activeDocumentId,
       (cloudData) => {
         if (!cloudData) {
-          const initialData = getCurrentPlanData();
+          const initialData = getEmptyPlanData();
           lastSyncedData.current = JSON.stringify(initialData);
-          saveWeddingPlan(activeCollectionName, initialData)
+          applyPlanData(initialData);
+          saveWeddingPlan(activeDocumentId, initialData)
             .then(() => setSyncStatus('synced'))
             .catch((err) => {
               setSyncStatus('error');
@@ -166,12 +185,12 @@ export default function App() {
 
         // Standardize the incoming payload shape to match exactly what we send out
         const incomingData: WeddingPlanData = {
-          weddingDate: cloudData.weddingDate !== undefined ? cloudData.weddingDate : '',
-          categories: cloudData.categories !== undefined ? cloudData.categories : DEFAULT_CATEGORIES,
+          weddingDate: cloudData.weddingDate || getTodayDate(),
+          categories: cloudData.categories !== undefined ? cloudData.categories : [],
           tasks: cloudData.tasks !== undefined ? cloudData.tasks : [],
           tableAssignments: cloudData.tableAssignments !== undefined ? cloudData.tableAssignments : { table_size_limit: 12, tables: [] },
           calendarEvents: cloudData.calendarEvents !== undefined ? cloudData.calendarEvents : [],
-          responseSourceConfig: cloudData.responseSourceConfig !== undefined ? cloudData.responseSourceConfig : { sheetUrl: '', spreadsheetId: '', range: 'A:Z' },
+          responseSourceConfig: cloudData.responseSourceConfig !== undefined ? cloudData.responseSourceConfig : { sheetUrl: '', spreadsheetId: '', range: '' },
           responseHeaders: cloudData.responseHeaders !== undefined ? cloudData.responseHeaders : [],
           formResponses: cloudData.formResponses !== undefined ? cloudData.formResponses : [],
           responseFieldMapping: cloudData.responseFieldMapping !== undefined ? cloudData.responseFieldMapping : { nameField: '' },
@@ -191,16 +210,7 @@ export default function App() {
         lastSyncedData.current = incomingStr;
 
         // Apply it safely to our UI
-        setWeddingDate(incomingData.weddingDate!);
-        setCategories(incomingData.categories!);
-        setTasks(incomingData.tasks!);
-        setTableAssignments(incomingData.tableAssignments!);
-        setCalendarEvents(incomingData.calendarEvents!);
-        setResponseSourceConfig(incomingData.responseSourceConfig || { sheetUrl: '', spreadsheetId: '', range: 'A:Z' });
-        setResponseHeaders(incomingData.responseHeaders || []);
-        setFormResponses(incomingData.formResponses || []);
-        setResponseFieldMapping(incomingData.responseFieldMapping || { nameField: '' });
-        setResponseFilterRules(incomingData.responseFilterRules || []);
+        applyPlanData(incomingData);
 
         setSyncStatus('synced');
       },
@@ -215,7 +225,7 @@ export default function App() {
     localStorage.setItem('wedding_sync_enabled', 'true');
 
     return () => unsubscribe();
-  }, [isSyncEnabled, activeCollectionName]);
+  }, [isSyncEnabled, activeDocumentId]);
 
   useEffect(() => {
     localStorage.setItem('wedding_sync_enabled', isSyncEnabled ? 'true' : 'false');
@@ -233,6 +243,19 @@ export default function App() {
       responseFieldMapping,
       responseFilterRules
   });
+
+  const applyPlanData = (data: WeddingPlanData) => {
+    setWeddingDate(data.weddingDate || getTodayDate());
+    setCategories(data.categories || []);
+    setTasks(data.tasks || []);
+    setTableAssignments(data.tableAssignments || { table_size_limit: 12, tables: [] });
+    setCalendarEvents(data.calendarEvents || []);
+    setResponseSourceConfig(data.responseSourceConfig || { sheetUrl: '', spreadsheetId: '', range: '' });
+    setResponseHeaders(data.responseHeaders || []);
+    setFormResponses(data.formResponses || []);
+    setResponseFieldMapping(data.responseFieldMapping || { nameField: '' });
+    setResponseFilterRules(data.responseFilterRules || []);
+  };
 
   const hasUnsavedChanges = isSyncEnabled
     && Boolean(lastSyncedData.current)
@@ -260,19 +283,19 @@ export default function App() {
       alert('使用者名稱及金鑰只可包含英文、數字、底線或連字號。');
       return;
     }
-    setActiveCollectionName(`${cleanKey}_${cleanUsername}`);
+    setActiveDocumentId(`${cleanUsername}_${cleanKey}`);
     setIsSyncEnabled(true);
   };
 
   const handleManualUpload = async () => {
-    if (!isSyncEnabled || !activeCollectionName) {
+    if (!isSyncEnabled || !activeDocumentId) {
       alert("請先確認使用者名稱及婚禮同步金鑰！");
       return;
     }
     try {
       setSyncStatus('loading');
       const dataToSave = getCurrentPlanData();
-      await saveWeddingPlan(activeCollectionName, dataToSave);
+      await saveWeddingPlan(activeDocumentId, dataToSave);
       lastSyncedData.current = JSON.stringify(dataToSave);
       setSyncStatus('synced');
       alert("儲存成功！目前的籌備資料已同步至雲端。");
@@ -284,7 +307,7 @@ export default function App() {
   };
 
   const handleManualDownload = async () => {
-    if (!isSyncEnabled || !activeCollectionName) {
+    if (!isSyncEnabled || !activeDocumentId) {
       alert("請先確認使用者名稱及婚禮同步金鑰！");
       return;
     }
@@ -293,7 +316,7 @@ export default function App() {
     }
     try {
       setSyncStatus('loading');
-      const cloudData = await loadWeddingPlan(activeCollectionName);
+      const cloudData = await loadWeddingPlan(activeDocumentId);
       if (!cloudData) {
         alert("雲端尚無此帳戶的資料，無法同步覆蓋。");
         setSyncStatus('offline');
@@ -301,12 +324,12 @@ export default function App() {
       }
       
       const incomingData: WeddingPlanData = {
-        weddingDate: cloudData.weddingDate !== undefined ? cloudData.weddingDate : '',
-        categories: cloudData.categories !== undefined ? cloudData.categories : DEFAULT_CATEGORIES,
+        weddingDate: cloudData.weddingDate || getTodayDate(),
+        categories: cloudData.categories !== undefined ? cloudData.categories : [],
         tasks: cloudData.tasks !== undefined ? cloudData.tasks : [],
         tableAssignments: cloudData.tableAssignments !== undefined ? cloudData.tableAssignments : { table_size_limit: 12, tables: [] },
         calendarEvents: cloudData.calendarEvents !== undefined ? cloudData.calendarEvents : [],
-          responseSourceConfig: cloudData.responseSourceConfig !== undefined ? cloudData.responseSourceConfig : { sheetUrl: '', spreadsheetId: '', range: 'A:Z' },
+          responseSourceConfig: cloudData.responseSourceConfig !== undefined ? cloudData.responseSourceConfig : { sheetUrl: '', spreadsheetId: '', range: '' },
           responseHeaders: cloudData.responseHeaders !== undefined ? cloudData.responseHeaders : [],
           formResponses: cloudData.formResponses !== undefined ? cloudData.formResponses : [],
           responseFieldMapping: cloudData.responseFieldMapping !== undefined ? cloudData.responseFieldMapping : { nameField: '' },
@@ -315,16 +338,7 @@ export default function App() {
 
       lastSyncedData.current = JSON.stringify(incomingData);
 
-      setWeddingDate(incomingData.weddingDate!);
-      setCategories(incomingData.categories!);
-      setTasks(incomingData.tasks!);
-      setTableAssignments(incomingData.tableAssignments!);
-      setCalendarEvents(incomingData.calendarEvents!);
-      setResponseSourceConfig(incomingData.responseSourceConfig || { sheetUrl: '', spreadsheetId: '', range: 'A:Z' });
-      setResponseHeaders(incomingData.responseHeaders || []);
-      setFormResponses(incomingData.formResponses || []);
-      setResponseFieldMapping(incomingData.responseFieldMapping || { nameField: '' });
-      setResponseFilterRules(incomingData.responseFilterRules || []);
+      applyPlanData(incomingData);
       
       setSyncStatus('synced');
       alert("已成功從雲端同步最新籌備資料並覆蓋本機資料！");
@@ -416,10 +430,10 @@ export default function App() {
     if (window.confirm('確定要清除所有資料並重設嗎？(這將覆蓋您目前的修改)')) {
       setTasks([]);
       setTableAssignments({ table_size_limit: 12, tables: [] });
-      setWeddingDate('');
-      setCategories(DEFAULT_CATEGORIES);
+      setWeddingDate(getTodayDate());
+      setCategories([]);
       setCalendarEvents([]);
-      setResponseSourceConfig({ sheetUrl: '', spreadsheetId: '', range: 'A:Z' });
+      setResponseSourceConfig({ sheetUrl: '', spreadsheetId: '', range: '' });
       setResponseHeaders([]);
       setFormResponses([]);
       setResponseFieldMapping({ nameField: '' });
@@ -611,7 +625,7 @@ export default function App() {
                 {syncStatus === 'synced' && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#F5F8F5] border border-[#E2D9CD]/50 text-[#8E9E8C] text-[10px] font-bold">
                     <Cloud className="w-3 h-3 text-[#8E9E8C]" />
-                    已連線：{activeCollectionName}
+                    已連線：{activeDocumentId}
                   </span>
                 )}
                 {hasUnsavedChanges && (
@@ -648,7 +662,7 @@ export default function App() {
                 </label>
                 <input
                   type="text"
-                  placeholder="例如：marry"
+                  placeholder="輸入使用者名稱"
                   value={username}
                   disabled={isSyncEnabled}
                   onChange={(e) => setUsername(e.target.value)}
@@ -662,7 +676,7 @@ export default function App() {
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="例如：our-big-day-2026"
+                    placeholder="輸入同步金鑰"
                     value={syncKey}
                     disabled={isSyncEnabled}
                     onChange={(e) => setSyncKey(e.target.value)}

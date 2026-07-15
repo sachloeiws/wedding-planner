@@ -56,12 +56,10 @@ export interface WeddingPlanData {
 }
 
 // Helpers for loading and saving
-const PLAN_DOCUMENT_ID = "wedding_plan";
-
-export async function saveWeddingPlan(collectionName: string, data: WeddingPlanData) {
+export async function saveWeddingPlan(documentId: string, data: WeddingPlanData) {
   try {
     const db = await getFirebaseDb();
-    const planDocRef = doc(db, collectionName, PLAN_DOCUMENT_ID);
+    const planDocRef = doc(db, "wedding_plans", documentId);
     const sanitizedData = JSON.parse(JSON.stringify(data));
 
     console.log("[1] 準備發送寫入請求到 Firestore...");
@@ -82,26 +80,26 @@ export async function saveWeddingPlan(collectionName: string, data: WeddingPlanD
   }
 }
 
-export async function loadWeddingPlan(collectionName: string): Promise<WeddingPlanData | null> {
+export async function loadWeddingPlan(documentId: string): Promise<WeddingPlanData | null> {
   try {
     const db = await getFirebaseDb();
-    const planDocRef = doc(db, collectionName, PLAN_DOCUMENT_ID);
+    const planDocRef = doc(db, "wedding_plans", documentId);
     const docSnap = await getDoc(planDocRef);
     if (docSnap.exists()) {
       return docSnap.data() as WeddingPlanData;
     }
     return null;
   } catch (error) {
-    console.error(`Error loading wedding plan ${collectionName}:`, error);
+    console.error(`Error loading wedding plan ${documentId}:`, error);
     throw error;
   }
 }
 
-export function subscribeWeddingPlan(collectionName: string, callback: (data: WeddingPlanData | null) => void, onError?: (err: Error) => void) {
+export function subscribeWeddingPlan(documentId: string, callback: (data: WeddingPlanData | null) => void, onError?: (err: Error) => void) {
   let unsubscribe: (() => void) | null = null;
   
   getFirebaseDb().then(async db => {
-    const planDocRef = doc(db, collectionName, PLAN_DOCUMENT_ID);
+    const planDocRef = doc(db, "wedding_plans", documentId);
     const initialSnap = await getDocFromServer(planDocRef);
 
     if (initialSnap.exists()) {
@@ -121,7 +119,7 @@ export function subscribeWeddingPlan(collectionName: string, callback: (data: We
         callback(null);
       }
     }, (error) => {
-      console.error(`Error subscribing to wedding plan ${collectionName}:`, error);
+      console.error(`Error subscribing to wedding plan ${documentId}:`, error);
       if (onError) onError(error);
     });
   }).catch(err => {

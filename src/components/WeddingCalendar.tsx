@@ -327,7 +327,7 @@ export default function WeddingCalendar({
                       <input
                         type="text"
                         required
-                        placeholder="例如：新秘試妝、試穿禮服"
+                        placeholder="輸入行程名稱"
                         value={newEventTitle}
                         onChange={e => setNewEventTitle(e.target.value)}
                         className="w-full px-3 py-1.5 text-xs bg-white border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C]"
@@ -364,7 +364,7 @@ export default function WeddingCalendar({
                     <label className="block text-[10px] font-medium text-[#A6998A] mb-1">行程備註</label>
                     <input
                       type="text"
-                      placeholder="補充細節，如：預約人、攜帶物品等"
+                      placeholder="輸入補充細節"
                       value={newEventNotes}
                       onChange={e => setNewEventNotes(e.target.value)}
                       className="w-full px-3 py-1.5 text-xs bg-white border border-[#E2D9CD] rounded-lg focus:outline-none"

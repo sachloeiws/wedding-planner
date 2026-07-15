@@ -420,7 +420,7 @@ export default function TodoList({
                   id="input_task_title"
                   type="text"
                   required
-                  placeholder="例如：挑選喜餅品牌、預約試妝"
+                  placeholder="輸入任務名稱"
                   value={newTitle}
                   onChange={e => setNewTitle(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs bg-white border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C]"
@@ -508,7 +508,7 @@ export default function TodoList({
                 <label className="block text-xs font-medium text-[#A6998A] mb-1">店家名稱 / 廠商</label>
                 <input
                   type="text"
-                  placeholder="例如：珍愛婚紗、皇樓喜餅"
+                  placeholder="輸入店家或品牌名稱"
                   value={newShopName}
                   onChange={e => setNewShopName(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs bg-white border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C]"
@@ -518,7 +518,7 @@ export default function TodoList({
                 <label className="block text-xs font-medium text-[#A6998A] mb-1">聯絡人資訊</label>
                 <input
                   type="text"
-                  placeholder="例如：林經理 0912-345678"
+                  placeholder="輸入聯絡資料"
                   value={newContactInfo}
                   onChange={e => setNewContactInfo(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs bg-white border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C]"
@@ -533,7 +533,7 @@ export default function TodoList({
                 <input
                   type="number"
                   min="0"
-                  placeholder="預算金額，例如：30000"
+                  placeholder="輸入預算金額"
                   value={newBudget}
                   onChange={e => setNewBudget(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs bg-white border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C]"
@@ -544,7 +544,7 @@ export default function TodoList({
                 <input
                   type="number"
                   min="0"
-                  placeholder="實際花費，例如：28000"
+                  placeholder="輸入實際花費"
                   value={newActualAmount}
                   onChange={e => setNewActualAmount(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs bg-white border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C]"
@@ -568,7 +568,7 @@ export default function TodoList({
                 <label className="block text-xs font-medium text-[#A6998A] mb-1">籌備地點</label>
                 <input
                   type="text"
-                  placeholder="輸入地點/地址，例如：大直典華"
+                  placeholder="輸入地點或地址"
                   value={newLocation}
                   onChange={e => setNewLocation(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs bg-white border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C]"
@@ -582,7 +582,7 @@ export default function TodoList({
               <input
                 id="input_task_notes"
                 type="text"
-                placeholder="補充細節，例如：起桌價、場勘名單"
+                placeholder="輸入補充細節"
                 value={newNotes}
                 onChange={e => setNewNotes(e.target.value)}
                 className="w-full px-3 py-1.5 text-xs bg-white border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C]"

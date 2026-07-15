@@ -477,7 +477,7 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
                     id="input_custom_zone"
                     type="text"
                     required
-                    placeholder="例如：伴郎伴娘、國中同學"
+                    placeholder="輸入桌席區域名稱"
                     value={customZone}
                     onChange={e => setCustomZone(e.target.value)}
                     className="w-full px-3 py-1.5 text-sm bg-white border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C] focus:border-[#8E9E8C]"
@@ -507,7 +507,7 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
         <input
           id="search_seating_chart"
           type="text"
-          placeholder="搜尋桌區、桌號或賓客姓名..."
+          placeholder="搜尋桌區、桌號或賓客姓名"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           className="w-full pl-9 pr-4 py-2 bg-white border border-[#E2D9CD] rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#8E9E8C] focus:border-[#8E9E8C] transition"
@@ -570,7 +570,7 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
                   <input
                     id={`input_add_guest_${selectedTable.table_no}`}
                     type="text"
-                    placeholder="輸入姓名 (多位請用逗號或換行隔開)"
+                    placeholder="輸入姓名（多位請用逗號或換行隔開）"
                     value={guestInputs[selectedTable.table_no] || ''}
                     onChange={e => setGuestInputs({ ...guestInputs, [selectedTable.table_no]: e.target.value })}
                     onKeyDown={e => {

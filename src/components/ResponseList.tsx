@@ -324,7 +324,7 @@ export default function ResponseList({
               type="text"
               value={sourceConfig.sheetUrl}
               onChange={event => updateSheetUrl(event.target.value)}
-              placeholder="貼上 https://docs.google.com/spreadsheets/d/..."
+              placeholder="貼上 Google 試算表網址"
               className="w-full px-3 py-2 text-xs bg-white border border-[#E2D9CD] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8E9E8C]"
             />
           </div>
@@ -335,7 +335,7 @@ export default function ResponseList({
                 type="text"
                 value={sourceConfig.sheetName || ''}
                 onChange={event => setSourceConfig(prev => ({ ...prev, sheetName: event.target.value }))}
-                placeholder="例如：表單回應 1"
+                placeholder="輸入工作表名稱"
                 className="w-full px-3 py-2 text-xs bg-white border border-[#E2D9CD] rounded-xl focus:outline-none"
               />
             </div>
