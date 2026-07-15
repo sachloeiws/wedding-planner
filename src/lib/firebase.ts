@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
+import { getFirestore, doc, getDoc, getDocFromServer, setDoc, onSnapshot } from "firebase/firestore";
 
 let dbInstance: any = null;
 
@@ -16,9 +16,12 @@ export async function getFirebaseDb() {
       projectId: "gen-lang-client-0384823757",
       storageBucket: "gen-lang-client-0384823757.firebasestorage.app",
       messagingSenderId: "264454517889",
-      appId: "1:264454517889:web:2c3b9cdc131398e79f8980"
+      appId: "1:264454517889:web:a4e556433abc37609f8980"
     };
-    console.log("🔍 Firebase Config 檢查:", config);
+    console.log("🔍 Firebase Config 檢查:", {
+      ...config,
+      firestoreDatabaseId: "default"
+    });
 
     // 檢查是否有讀取到 API Key (防呆機制)
     if (!config.apiKey) {
@@ -27,8 +30,8 @@ export async function getFirebaseDb() {
 
     const app = initializeApp(config);
     
-    // 初始化 Firestore
-    dbInstance = getFirestore(app,"(default)");
+    // Firebase Console 顯示的 Database ID 是 "default"，需明確傳入。
+    dbInstance = getFirestore(app, "default");
     
     return dbInstance;
   } catch (error) {
@@ -92,14 +95,28 @@ export async function loadWeddingPlan(planId: string): Promise<WeddingPlanData |
   }
 }
 
-export function subscribeWeddingPlan(planId: string, callback: (data: WeddingPlanData) => void, onError?: (err: Error) => void) {
+export function subscribeWeddingPlan(planId: string, callback: (data: WeddingPlanData | null) => void, onError?: (err: Error) => void) {
   let unsubscribe: (() => void) | null = null;
   
-  getFirebaseDb().then(db => {
+  getFirebaseDb().then(async db => {
     const planDocRef = doc(db, "wedding_plans", planId);
-    unsubscribe = onSnapshot(planDocRef, (docSnap) => {
+    const initialSnap = await getDocFromServer(planDocRef);
+
+    if (initialSnap.exists()) {
+      callback(initialSnap.data() as WeddingPlanData);
+    } else {
+      callback(null);
+    }
+
+    unsubscribe = onSnapshot(planDocRef, { includeMetadataChanges: true }, (docSnap) => {
+      if (docSnap.metadata.fromCache) {
+        return;
+      }
+
       if (docSnap.exists()) {
         callback(docSnap.data() as WeddingPlanData);
+      } else {
+        callback(null);
       }
     }, (error) => {
       console.error(`Error subscribing to wedding plan ${planId}:`, error);
