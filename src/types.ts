@@ -54,6 +54,7 @@ export interface ResponseSourceConfig {
   sheetName?: string;
   range: string;
   lastLoadedAt?: string;
+  setupComplete?: boolean;
 }
 
 export interface ResponseFieldMapping {
@@ -63,6 +64,7 @@ export interface ResponseFieldMapping {
   attendanceField?: string;
   countField?: string;
   notesField?: string;
+  relationshipField?: string;
 }
 
 export type ResponseFilterOperator = 'equals' | 'contains' | 'not_equals' | 'not_empty';
@@ -86,6 +88,11 @@ export interface GuestImportCandidate {
   notes?: string;
   sourceLabel?: string;
   response: FormResponseRow;
+  phone?: string;
+  email?: string;
+  attendance?: string;
+  partySize?: number;
+  relationship?: string;
 }
 
 export const DEFAULT_CATEGORIES = [

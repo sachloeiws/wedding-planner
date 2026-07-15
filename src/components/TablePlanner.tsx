@@ -38,6 +38,8 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
   const [customZone, setCustomZone] = useState('');
   const [isAddingTable, setIsAddingTable] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [poolSearch, setPoolSearch] = useState('');
+  const [poolView, setPoolView] = useState<'unseated' | 'all'>('unseated');
 
   // Local state for guest inputs per table
   const [guestInputs, setGuestInputs] = useState<{ [key: number]: string }>({});
@@ -223,10 +225,27 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
   const seatedGuestNames = new Set(
     tables.flatMap(t => t.guests.map(g => g.name.trim().toLowerCase()).filter(Boolean))
   );
+  const isDeclined = (candidate: GuestImportCandidate) => /不|否|無法|不能|缺席|no/i.test(candidate.attendance || '');
   const availableResponseGuests = responseGuests.filter(candidate => {
     const nameKey = candidate.name.trim().toLowerCase();
-    return nameKey && !seatedGuestNames.has(nameKey);
+    return nameKey && !seatedGuestNames.has(nameKey) && !isDeclined(candidate);
   });
+  const visiblePoolGuests = (poolView === 'unseated' ? availableResponseGuests : responseGuests)
+    .filter(candidate => {
+      const query = poolSearch.trim().toLowerCase();
+      return !query || [candidate.name, candidate.relationship, candidate.phone, candidate.email, candidate.notes]
+        .some(value => (value || '').toLowerCase().includes(query));
+    });
+
+  const candidateToGuests = (candidate: GuestImportCandidate) => {
+    const size = Math.max(1, candidate.partySize || 1);
+    const details = [candidate.relationship, candidate.notes, candidate.phone || candidate.email].filter(Boolean).join(' / ');
+    return Array.from({ length: size }, (_, index) => ({
+      id: `g_response_${candidate.id}_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`,
+      name: index === 0 ? candidate.name.trim() : `${candidate.name.trim()}－同行賓客 ${index}`,
+      notes: details || candidate.sourceLabel || ''
+    }));
+  };
 
   const handleImportResponseGuest = (tableNo: number, candidate: GuestImportCandidate) => {
     const name = candidate.name.trim();
@@ -242,16 +261,12 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
       return;
     }
 
-    const newGuest = {
-      id: `g_response_${candidate.id}_${Date.now()}`,
-      name,
-      notes: candidate.notes || candidate.sourceLabel || ''
-    };
+    const newGuests = candidateToGuests(candidate);
 
     setTableAssignments(prev => ({
       ...prev,
       tables: prev.tables.map(table => table.table_no === tableNo
-        ? { ...table, guests: [...table.guests, newGuest] }
+        ? { ...table, guests: [...table.guests, ...newGuests] }
         : table
       )
     }));
@@ -267,11 +282,7 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
 
       const guestsToAdd = availableResponseGuests
         .filter(candidate => !currentNames.has(candidate.name.trim().toLowerCase()))
-        .map(candidate => ({
-          id: `g_response_${candidate.id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-          name: candidate.name.trim(),
-          notes: candidate.notes || candidate.sourceLabel || ''
-        }));
+        .flatMap(candidateToGuests);
 
       if (guestsToAdd.length === 0) return prev;
 
@@ -726,10 +737,10 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
               <div>
                 <h3 className="text-xs font-semibold text-[#5E564E] flex items-center gap-1.5">
                   <Users className="w-3.5 h-3.5 text-[#8E9E8C]" />
-                  表單名單池
+                  待安排賓客池
                 </h3>
                 <p className="text-[10px] text-[#A6998A] mt-1">
-                  使用回覆清單目前篩選後的名單
+                  從標準化回覆名單直接安排座位
                 </p>
               </div>
               <button
@@ -750,8 +761,8 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
               <>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-[#FAF8F5] border border-[#F0EBE4] rounded-xl p-2 text-center">
-                    <span className="block text-[10px] text-[#A6998A]">篩選名單</span>
-                    <span className="font-mono text-sm font-bold text-[#5E564E]">{responseGuests.length}</span>
+                    <span className="block text-[10px] text-[#A6998A]">可排座回覆</span>
+                    <span className="font-mono text-sm font-bold text-[#5E564E]">{responseGuests.filter(candidate => !isDeclined(candidate)).length}</span>
                   </div>
                   <div className="bg-[#F5F8F5] border border-[#E2D9CD]/60 rounded-xl p-2 text-center">
                     <span className="block text-[10px] text-[#A6998A]">尚未入座</span>
@@ -759,31 +770,48 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
                   </div>
                 </div>
 
-                <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
-                  {responseGuests.map(candidate => {
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A6998A]" />
+                    <input value={poolSearch} onChange={event => setPoolSearch(event.target.value)} placeholder="搜尋待安排賓客" className="w-full pl-8 pr-3 py-2 rounded-lg border border-[#E2D9CD] text-xs" />
+                  </div>
+                  <div className="flex bg-[#F2EDE4] p-1 rounded-lg">
+                    <button onClick={() => setPoolView('unseated')} className={`px-2 py-1 rounded text-[10px] font-semibold ${poolView === 'unseated' ? 'bg-white text-[#5E564E]' : 'text-[#A6998A]'}`}>待安排</button>
+                    <button onClick={() => setPoolView('all')} className={`px-2 py-1 rounded text-[10px] font-semibold ${poolView === 'all' ? 'bg-white text-[#5E564E]' : 'text-[#A6998A]'}`}>全部</button>
+                  </div>
+                </div>
+
+                <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+                  {visiblePoolGuests.map(candidate => {
                     const nameKey = candidate.name.trim().toLowerCase();
                     const isSeated = seatedGuestNames.has(nameKey);
+                    const declined = isDeclined(candidate);
                     return (
                       <div key={candidate.id} className="flex items-start justify-between gap-2 border border-[#F0EBE4] rounded-xl p-3 bg-[#FAF8F5]">
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold text-[#4A443F] truncate">{candidate.name}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-xs font-semibold text-[#4A443F] truncate">{candidate.name}</p>
+                            {(candidate.partySize || 1) > 1 && <span className="px-1.5 py-0.5 rounded-full bg-[#F2EDE4] text-[#8C745A] text-[9px] font-bold">一行 {candidate.partySize} 人</span>}
+                            {candidate.relationship && <span className="px-1.5 py-0.5 rounded-full bg-white border border-[#E2D9CD] text-[#A6998A] text-[9px]">{candidate.relationship}</span>}
+                          </div>
                           {(candidate.notes || candidate.sourceLabel) && (
                             <p className="text-[10px] text-[#A6998A] mt-1 line-clamp-2">{candidate.notes || candidate.sourceLabel}</p>
                           )}
                         </div>
                         <button
                           type="button"
-                          disabled={!selectedTable || isSeated}
+                          disabled={!selectedTable || isSeated || declined}
                           onClick={() => selectedTable && handleImportResponseGuest(selectedTable.table_no, candidate)}
                           className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-[#F2EDE4]/40 disabled:bg-stone-100 disabled:text-stone-400 border border-[#E2D9CD] text-[#8C745A] rounded-lg text-[10px] font-semibold transition"
-                          title={isSeated ? '已在座位表中' : '加入目前選取的桌'}
+                          title={declined ? '此回覆為不出席' : isSeated ? '已在座位表中' : '加入目前選取的桌'}
                         >
                           <UserPlus className="w-3 h-3" />
-                          {isSeated ? '已入座' : '加入'}
+                          {declined ? '不出席' : isSeated ? '已入座' : '加入'}
                         </button>
                       </div>
                     );
                   })}
+                  {visiblePoolGuests.length === 0 && <div className="p-5 text-center text-xs text-[#A6998A] border border-dashed border-[#E2D9CD] rounded-xl">目前沒有符合條件的待安排賓客。</div>}
                 </div>
               </>
             )}

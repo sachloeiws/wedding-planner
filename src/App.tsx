@@ -7,7 +7,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import TodoList from './components/TodoList';
 import TablePlanner from './components/TablePlanner';
 import WeddingCalendar from './components/WeddingCalendar';
-import ResponseList, { filterResponses } from './components/ResponseList';
+import { filterResponses } from './components/ResponseList';
+import ResponseWorkspace from './components/ResponseWorkspace';
 import {
   TodoItem,
   TableAssignments,
@@ -407,6 +408,11 @@ export default function App() {
         notes,
         sourceLabel: `表單第 ${row.rowNumber} 列`,
         response: row,
+        phone: responseFieldMapping.phoneField ? row.values[responseFieldMapping.phoneField] : '',
+        email: responseFieldMapping.emailField ? row.values[responseFieldMapping.emailField] : '',
+        attendance: responseFieldMapping.attendanceField ? row.values[responseFieldMapping.attendanceField] : '',
+        partySize: responseFieldMapping.countField ? Math.max(1, Number.parseInt(row.values[responseFieldMapping.countField], 10) || 1) : 1,
+        relationship: responseFieldMapping.relationshipField ? row.values[responseFieldMapping.relationshipField] : '',
       };
     })
     .filter((candidate): candidate is GuestImportCandidate => Boolean(candidate));
@@ -626,11 +632,11 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <Database className="w-5 h-5 text-[#8E9E8C]" />
                 <h3 className="text-sm font-semibold font-serif text-[#5E564E] tracking-tight">
-                  Firebase 雲端儲存與協作
+                  與另一半共用婚禮計畫
                 </h3>
               </div>
               <p className="text-xs text-[#A6998A] leading-relaxed">
-                輸入相同的使用者名稱與專屬金鑰，即可使用同一份雲端婚禮資料。修改只會在按下「儲存」後寫入雲端。
+                和另一半或婚禮夥伴輸入相同的使用者名稱與同步金鑰，就能開啟同一份婚禮計畫。完成修改後，記得按下「儲存」更新雲端資料。
               </p>
               
               <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -832,7 +838,7 @@ export default function App() {
             />
           )}
           {activeTab === 'responses' && (
-            <ResponseList
+            <ResponseWorkspace
               sourceConfig={responseSourceConfig}
               setSourceConfig={setResponseSourceConfig}
               headers={responseHeaders}
