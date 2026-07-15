@@ -41,6 +41,7 @@ export default function WeddingCalendar({
   // Form states for new calendar event
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventNotes, setNewEventNotes] = useState('');
+  const [newEventTime, setNewEventTime] = useState('09:00');
   const [newEventCategory, setNewEventCategory] = useState('婚禮準備');
 
   // Month navigation
@@ -121,11 +122,38 @@ export default function WeddingCalendar({
     '九月 September', '十月 October', '十一月 November', '十二月 December'
   ];
 
+  const isValidEventTime = (time?: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time || '');
+
+  const getEventTime = (event: CalendarEvent) => isValidEventTime(event.time) ? event.time! : '00:00';
+
+  const sortEventsByTime = (events: CalendarEvent[]) => [...events].sort((a, b) => {
+    const timeCompare = getEventTime(a).localeCompare(getEventTime(b));
+    if (timeCompare !== 0) return timeCompare;
+    return a.title.localeCompare(b.title);
+  });
+
   // Get items for a given date
   const getItemsForDate = (dateStr: string) => {
     const dayTasks = tasks.filter(t => t.due_date === dateStr);
     const dayEvents = calendarEvents.filter(e => e.date === dateStr);
     return { dayTasks, dayEvents };
+  };
+
+  const getPreviewItemsForDate = (dateStr: string) => {
+    const { dayTasks, dayEvents } = getItemsForDate(dateStr);
+    const eventItems = sortEventsByTime(dayEvents).map(event => ({
+      id: event.id,
+      type: 'event' as const,
+      label: `${getEventTime(event)} ${event.title}`,
+      className: 'bg-[#FAF5EE] text-[#8C745A] border-[#E8DFD1]',
+    }));
+    const taskItems = dayTasks.map(task => ({
+      id: task.id,
+      type: 'task' as const,
+      label: task.title,
+      className: 'bg-[#F5F8F5] text-[#7D8C7C] border-[#E2D9CD]/40',
+    }));
+    return [...eventItems, ...taskItems];
   };
 
   // Handle adding custom event
@@ -135,14 +163,16 @@ export default function WeddingCalendar({
 
     const newEvent: CalendarEvent = {
       id: `event_${Date.now()}`,
-      title: newEventTitle,
+      title: newEventTitle.trim(),
       date: selectedDateStr,
+      time: isValidEventTime(newEventTime) ? newEventTime : '00:00',
       notes: newEventNotes,
       category: newEventCategory
     };
 
     setCalendarEvents(prev => [...prev, newEvent]);
     setNewEventTitle('');
+    setNewEventTime('09:00');
     setNewEventNotes('');
     setIsAddingEvent(false);
   };
@@ -153,6 +183,7 @@ export default function WeddingCalendar({
   };
 
   const { dayTasks: selectedTasks, dayEvents: selectedEvents } = getItemsForDate(selectedDateStr);
+  const sortedSelectedEvents = sortEventsByTime(selectedEvents);
   const totalItemsToday = selectedTasks.length + selectedEvents.length;
 
   return (
@@ -205,17 +236,19 @@ export default function WeddingCalendar({
         {/* Calendar days */}
         <div className="grid grid-cols-7 bg-white">
           {calendarDays.map((day, idx) => {
-            const { dayTasks, dayEvents } = getItemsForDate(day.dateStr);
+            const previewItems = getPreviewItemsForDate(day.dateStr);
+            const visiblePreviewItems = previewItems.slice(0, 2);
+            const hiddenPreviewCount = Math.max(previewItems.length - visiblePreviewItems.length, 0);
             const isSelected = day.dateStr === selectedDateStr;
             const isToday = day.dateStr === today.toISOString().split('T')[0];
-            const hasItems = dayTasks.length > 0 || dayEvents.length > 0;
+            const hasItems = previewItems.length > 0;
             const isCurrentMonth = day.monthOffset === 0;
 
             return (
               <div
                 key={idx}
                 onClick={() => setSelectedDateStr(day.dateStr)}
-                className={`min-h-[64px] p-1.5 border-r border-b border-[#F0EBE4] flex flex-col justify-between cursor-pointer transition-all hover:bg-[#FAF8F5]/80 ${
+                className={`min-h-[74px] sm:min-h-[88px] p-1 sm:p-1.5 border-r border-b border-[#F0EBE4] flex flex-col justify-start cursor-pointer transition-all hover:bg-[#FAF8F5]/80 ${
                   isCurrentMonth ? 'text-[#5E564E]' : 'text-[#A6998A]/50 bg-[#FAF8F5]/30'
                 } ${isSelected ? 'bg-[#F2EDE4]/70 ring-1 ring-inset ring-[#8E9E8C]/50' : ''}`}
               >
@@ -231,28 +264,20 @@ export default function WeddingCalendar({
                   )}
                 </div>
 
-                {/* Event previews (renders up to 2 mini labels) */}
-                <div className="flex-1 flex flex-col gap-0.5 justify-end overflow-hidden max-h-[32px] pointer-events-none">
-                  {dayEvents.slice(0, 1).map(ev => (
-                    <div 
-                      key={ev.id} 
-                      className="text-[8px] px-1 py-0.5 rounded bg-[#FAF5EE] text-[#8C745A] border border-[#E8DFD1] truncate font-medium max-w-full"
+                {/* Event previews */}
+                <div className="flex flex-col gap-0.5 justify-start overflow-hidden max-h-[42px] sm:max-h-[48px] pointer-events-none">
+                  {visiblePreviewItems.map(item => (
+                    <div
+                      key={`${item.type}_${item.id}`}
+                      className={`text-[7px] sm:text-[8px] px-1 py-0.5 rounded border truncate font-medium max-w-full ${item.className}`}
                     >
-                      {ev.title}
+                      {item.type === 'task' && <span className="inline-block w-1 h-1 rounded-full bg-[#8E9E8C] mr-0.5 align-middle" />}
+                      {item.label}
                     </div>
                   ))}
-                  {dayTasks.slice(0, 1).map(task => (
-                    <div 
-                      key={task.id} 
-                      className="text-[8px] px-1 py-0.5 rounded bg-[#F5F8F5] text-[#7D8C7C] border border-[#E2D9CD]/40 truncate font-medium max-w-full flex items-center gap-0.5"
-                    >
-                      <span className="w-1 h-1 rounded-full bg-[#8E9E8C]" />
-                      {task.title}
-                    </div>
-                  ))}
-                  {(dayTasks.length + dayEvents.length) > 2 && (
-                    <div className="text-[7px] text-[#A6998A] text-right pr-0.5 font-bold font-mono">
-                      +{dayTasks.length + dayEvents.length - 2}
+                  {hiddenPreviewCount > 0 && (
+                    <div className="text-[7px] sm:text-[8px] text-[#8C745A] text-right pr-0.5 font-bold font-mono">
+                      +{hiddenPreviewCount}
                     </div>
                   )}
                 </div>
@@ -296,7 +321,7 @@ export default function WeddingCalendar({
                   exit={{ opacity: 0, height: 0 }}
                   className="bg-white border border-[#E2D9CD] rounded-2xl p-4 mb-4 space-y-3 overflow-hidden"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-[10px] font-medium text-[#A6998A] mb-1">行程名稱 *</label>
                       <input
@@ -306,6 +331,17 @@ export default function WeddingCalendar({
                         value={newEventTitle}
                         onChange={e => setNewEventTitle(e.target.value)}
                         className="w-full px-3 py-1.5 text-xs bg-white border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-medium text-[#A6998A] mb-1">時間</label>
+                      <input
+                        type="time"
+                        step="60"
+                        lang="en-GB"
+                        value={newEventTime}
+                        onChange={e => setNewEventTime(e.target.value)}
+                        className="w-full px-3 py-1.5 text-xs bg-white border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C] font-mono"
                       />
                     </div>
                     <div>
@@ -363,7 +399,7 @@ export default function WeddingCalendar({
               ) : (
                 <>
                   {/* Custom Calendar Events */}
-                  {selectedEvents.map(ev => (
+                  {sortedSelectedEvents.map(ev => (
                     <div 
                       key={ev.id}
                       className="flex items-center justify-between p-3 bg-white border border-[#F0EBE4] rounded-xl hover:border-[#D4A373]/40 transition group"
@@ -374,6 +410,7 @@ export default function WeddingCalendar({
                         </div>
                         <div>
                           <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FAF5EE] text-[#8C745A] border border-[#E8DFD1] font-mono font-bold">{getEventTime(ev)}</span>
                             <span className="text-xs font-semibold text-[#5E564E]">{ev.title}</span>
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#FAF5EE] text-[#D4A373] border border-[#E8DFD1]">
                               {ev.category || '行程'}
@@ -386,7 +423,7 @@ export default function WeddingCalendar({
                       </div>
                       <button
                         onClick={() => handleDeleteEvent(ev.id)}
-                        className="p-1 hover:bg-[#FAF8F5] text-[#A6998A]/50 hover:text-[#D4A373] rounded opacity-0 group-hover:opacity-100 transition cursor-pointer"
+                        className="p-1.5 hover:bg-[#FAF8F5] text-[#A6998A]/70 hover:text-[#D4A373] rounded-lg opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition cursor-pointer"
                         title="刪除此行程"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

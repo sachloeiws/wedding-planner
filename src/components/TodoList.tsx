@@ -242,6 +242,7 @@ export default function TodoList({
 
   const totalActualCost = categoryCosts.reduce((sum, c) => sum + c.actual, 0);
 
+  const chartCircumference = 2 * Math.PI * 35;
   let accumulatedPercent = 0;
   const colors = [
     '#8E9E8C', // Sage
@@ -256,8 +257,8 @@ export default function TodoList({
 
   const slices = categoryCosts.map((item, idx) => {
     const percent = totalActualCost > 0 ? (item.actual / totalActualCost) : 0;
-    const dashArray = `${percent * 220} 220`;
-    const dashOffset = -accumulatedPercent * 220;
+    const dashArray = `${percent * chartCircumference} ${chartCircumference}`;
+    const dashOffset = -accumulatedPercent * chartCircumference;
     accumulatedPercent += percent;
     const color = colors[idx % colors.length];
 
@@ -288,120 +289,117 @@ export default function TodoList({
         </button>
       </div>
 
-      {/* Stats and Pie Chart Bento Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        {/* Progress Card */}
+      {/* Stats and Expense Breakdown */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-[#FAF8F5] rounded-2xl p-4 border border-[#F0EBE4] flex flex-col justify-between min-h-[120px]">
           <div>
-            <span className="text-[10px] font-semibold text-[#A6998A] block uppercase tracking-wider mb-1">總體完成進度</span>
+            <span className="text-[10px] font-semibold text-[#A6998A] block uppercase tracking-wider mb-1">規劃進度</span>
             <span className="text-sm font-semibold text-[#5E564E]">{completedCount} / {tasks.length} 已完成 ({progressPercent}%)</span>
           </div>
           <div className="w-full bg-[#F2EDE4] rounded-full h-2 mt-2">
-            <div 
-              className="bg-[#8E9E8C] h-2 rounded-full transition-all duration-500 ease-out" 
+            <div
+              className="bg-[#8E9E8C] h-2 rounded-full transition-all duration-500 ease-out"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
         </div>
 
-        {/* Budget Tracker Card */}
         <div className="bg-[#FAF8F5] rounded-2xl p-4 border border-[#F0EBE4] flex flex-col justify-between min-h-[120px] text-xs">
           <div>
             <div className="flex justify-between text-[#A6998A] font-semibold text-[10px] uppercase tracking-wider mb-1">
-              <span>經費統計</span>
-              <span>餘額</span>
+              <span>預算控管</span>
+              <span>{budgetDiff >= 0 ? '剩餘' : '超支'}</span>
             </div>
-            <div className="flex justify-between items-baseline mt-1">
-              <div className="space-y-0.5 text-[#5E564E] font-mono">
-                <div>預算: <strong className="text-[#5E564E]">${totalBudget.toLocaleString()}</strong></div>
-                <div>實際: <strong className="text-[#5E564E]">${totalActual.toLocaleString()}</strong></div>
+            <div className="flex justify-between items-baseline mt-1 gap-3">
+              <div className="space-y-0.5 text-[#5E564E] font-mono min-w-0">
+                <div>預算: <strong className="text-[#5E564E]">NT${totalBudget.toLocaleString()}</strong></div>
+                <div>實際: <strong className="text-[#5E564E]">NT${totalActual.toLocaleString()}</strong></div>
               </div>
-              <span className={`font-mono font-bold text-sm ${budgetDiff >= 0 ? 'text-[#8E9E8C]' : 'text-[#D4A373]'}`}>
-                {budgetDiff >= 0 ? `+$${budgetDiff.toLocaleString()}` : `-$${Math.abs(budgetDiff).toLocaleString()}`}
+              <span className={`font-mono font-bold text-sm shrink-0 ${budgetDiff >= 0 ? 'text-[#8E9E8C]' : 'text-[#D4A373]'}`}>
+                {budgetDiff >= 0 ? `+NT$${budgetDiff.toLocaleString()}` : `-NT$${Math.abs(budgetDiff).toLocaleString()}`}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Cost Breakdown Pie Chart Card */}
-        <div className="bg-[#FAF8F5] rounded-2xl p-4 border border-[#F0EBE4] flex flex-col sm:flex-row items-center gap-4 min-h-[120px]">
-          {/* SVG Pie Chart */}
-          <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
-            {totalActualCost > 0 ? (
-              <>
-                <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
-                  {slices.map((slice, idx) => (
-                    <circle
-                      key={idx}
-                      cx="50"
-                      cy="50"
-                      r="35"
-                      fill="transparent"
-                      stroke={slice.color}
-                      strokeWidth="16"
-                      strokeDasharray={slice.dashArray}
-                      strokeDashoffset={slice.dashOffset}
-                      className="transition-all duration-300 hover:stroke-[20]"
-                      style={{ transformOrigin: '50% 50%' }}
-                    />
-                  ))}
-                  <circle cx="50" cy="50" r="24" fill="#FAF8F5" />
-                </svg>
-                {/* Center label */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                  <span className="text-[9px] text-[#A6998A] scale-90">總實際</span>
-                  <span className="text-[10px] font-bold font-mono text-[#5E564E] mt-[-2px]">${totalActualCost >= 10000 ? `${(totalActualCost/1000).toFixed(0)}k` : totalActualCost}</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="35"
-                    fill="transparent"
-                    stroke="#E6D5C3"
-                    strokeWidth="16"
-                    className="opacity-50"
-                  />
-                  <circle cx="50" cy="50" r="24" fill="#FAF8F5" />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                  <span className="text-[9px] text-[#A6998A] scale-90">暫無</span>
-                  <span className="text-[10px] font-bold font-mono text-[#A6998A] mt-[-2px]">$0</span>
-                </div>
-              </>
-            )}
-          </div>
+        <div className="bg-[#FAF8F5] rounded-2xl p-4 sm:p-5 border border-[#F0EBE4] min-h-[220px] lg:col-span-2">
+          <div className="flex flex-col sm:flex-row items-center sm:items-stretch gap-5">
+            <div className="relative w-36 h-36 sm:w-40 sm:h-40 shrink-0 flex items-center justify-center">
+              {totalActualCost > 0 ? (
+                <>
+                  <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
+                    {slices.map((slice, idx) => (
+                      <circle
+                        key={idx}
+                        cx="50"
+                        cy="50"
+                        r="35"
+                        fill="transparent"
+                        stroke={slice.color}
+                        strokeWidth="18"
+                        strokeDasharray={slice.dashArray}
+                        strokeDashoffset={slice.dashOffset}
+                        strokeLinecap="round"
+                        className="transition-all duration-300"
+                        style={{ transformOrigin: '50% 50%' }}
+                      />
+                    ))}
+                    <circle cx="50" cy="50" r="23" fill="#FAF8F5" />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
+                    <span className="text-[10px] text-[#A6998A] font-semibold">實際支出</span>
+                    <span className="text-base font-bold font-mono text-[#5E564E] leading-tight">
+                      NT${totalActualCost >= 10000 ? `${(totalActualCost / 1000).toFixed(0)}k` : totalActualCost.toLocaleString()}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
+                    <circle cx="50" cy="50" r="35" fill="transparent" stroke="#E6D5C3" strokeWidth="18" className="opacity-60" />
+                    <circle cx="50" cy="50" r="23" fill="#FAF8F5" />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <span className="text-[10px] text-[#A6998A] font-semibold">尚無支出</span>
+                    <span className="text-base font-bold font-mono text-[#A6998A]">NT$0</span>
+                  </div>
+                </>
+              )}
+            </div>
 
-          {/* Chart Legend */}
-          <div className="flex-1 min-w-0">
-            <span className="text-[10px] font-semibold text-[#A6998A] block uppercase tracking-wider mb-1">支出類別比例</span>
-            {totalActualCost > 0 ? (
-              <div className="grid grid-cols-1 gap-y-0.5 text-[10px]">
-                {slices.slice(0, 3).map((slice, idx) => (
-                  <div key={idx} className="flex items-center gap-1.5 min-w-0">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: slice.color }} />
-                    <span className="text-[#5E564E] truncate flex-1" title={slice.category}>{slice.category}</span>
-                    <span className="text-[#A6998A] font-mono shrink-0 font-bold">{Math.round(slice.percent * 100)}%</span>
-                  </div>
-                ))}
-                {slices.length > 3 && (
-                  <div className="text-[9px] text-[#A6998A] italic mt-0.5 text-right">
-                    其他其餘 {slices.length - 3} 個分類...
-                  </div>
-                )}
+            <div className="flex-1 min-w-0 w-full flex flex-col justify-center">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <span className="text-[10px] font-semibold text-[#A6998A] block uppercase tracking-wider">支出類別比例</span>
+                <span className="text-[10px] text-[#8C745A] font-mono shrink-0">{slices.length} 類</span>
               </div>
-            ) : (
-              <p className="text-[10px] text-[#A6998A] italic leading-tight">
-                於待辦事項中填寫「實際金額」與分類，即可自動產生比例圖。
-              </p>
-            )}
+              {totalActualCost > 0 ? (
+                <div className="space-y-2.5">
+                  {slices.map((slice, idx) => (
+                    <div key={idx} className="space-y-1">
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: slice.color }} />
+                        <span className="text-[#5E564E] truncate flex-1 font-medium" title={slice.category}>{slice.category}</span>
+                        <span className="text-[#A6998A] font-mono shrink-0">NT${slice.actual.toLocaleString()}</span>
+                        <span className="text-[#8C745A] font-mono shrink-0 font-bold w-9 text-right">{Math.round(slice.percent * 100)}%</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-[#F2EDE4] overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${Math.max(slice.percent * 100, 3)}%`, backgroundColor: slice.color }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-[#A6998A] italic leading-relaxed">
+                  新增實際支出後，這裡會顯示各類別佔比，方便快速看出預算主要花在哪些項目。
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>
-
       {/* Add Task Form */}
       <AnimatePresence>
         {isAdding && (
@@ -791,9 +789,9 @@ export default function TodoList({
                       </div>
                     </div>
                   ) : (
-                    <div className="pr-1.5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-2.5">
+                    <div className="pr-0">
+                      <div className="flex items-start justify-between gap-2 sm:gap-3">
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
                           {/* Complete status toggler button */}
                           <button
                             id={`btn_toggle_status_${task.id}`}
@@ -888,11 +886,11 @@ export default function TodoList({
                         </div>
 
                         {/* Actions */}
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 md:opacity-100 transition shrink-0">
+                        <div className="flex items-center gap-1 shrink-0 rounded-xl bg-[#FAF8F5] border border-[#F0EBE4] p-0.5 opacity-100 sm:bg-transparent sm:border-transparent sm:p-0 transition">
                           <button
                             id={`btn_edit_task_${task.id}`}
                             onClick={() => handleStartEdit(task)}
-                            className="p-1 hover:bg-[#FAF8F5] text-[#A6998A] hover:text-[#4A443F] rounded cursor-pointer"
+                            className="p-1.5 sm:p-1 hover:bg-white sm:hover:bg-[#FAF8F5] text-[#8C745A] sm:text-[#A6998A] hover:text-[#4A443F] rounded-lg cursor-pointer"
                             title="編輯"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -900,7 +898,7 @@ export default function TodoList({
                           <button
                             id={`btn_delete_task_${task.id}`}
                             onClick={() => handleDeleteTask(task.id)}
-                            className="p-1 hover:bg-[#FAF8F5] text-[#A6998A] hover:text-[#D4A373] rounded cursor-pointer"
+                            className="p-1.5 sm:p-1 hover:bg-white sm:hover:bg-[#FAF8F5] text-[#D4A373] sm:text-[#A6998A] hover:text-[#D4A373] rounded-lg cursor-pointer"
                             title="刪除"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
