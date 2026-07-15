@@ -28,3 +28,43 @@ body {
   font-family: var(--font-sans);
 }
 
+.wedding-alert-popup {
+  width: min(92vw, 26rem) !important;
+  padding: 1.5rem !important;
+  border: 1px solid #E2D9CD !important;
+  border-radius: 1.5rem !important;
+  background: #FFFEFC !important;
+  color: #4A443F !important;
+  font-family: var(--font-sans) !important;
+}
+
+.wedding-alert-title {
+  padding-top: 0.5rem !important;
+  color: #5E564E !important;
+  font-family: var(--font-serif) !important;
+  font-size: 1.25rem !important;
+}
+
+.wedding-alert-content {
+  color: #8C745A !important;
+  font-size: 0.875rem !important;
+  line-height: 1.6 !important;
+}
+
+.wedding-alert-button {
+  min-width: 6rem;
+  border-radius: 0.75rem !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+}
+
+@media (max-width: 480px) {
+  .wedding-alert-popup {
+    padding: 1.1rem !important;
+    border-radius: 1.25rem !important;
+  }
+
+  .wedding-alert-button {
+    min-width: 5.25rem;
+  }
+}

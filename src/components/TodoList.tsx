@@ -22,6 +22,7 @@ import {
   FolderPlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { showConfirm, showWarning } from '../lib/alerts';
 
 interface TodoListProps {
   tasks: TodoItem[];
@@ -68,19 +69,19 @@ export default function TodoList({
   const [editLocation, setEditLocation] = useState('');
 
   // Delete category handler
-  const handleDeleteCategory = (catName: string) => {
+  const handleDeleteCategory = async (catName: string) => {
     const isUsed = tasks.some(t => t.category === catName);
     if (isUsed) {
-      alert(`分類「${catName}」目前有待辦事項正在使用，請先修改該事項的分類後再行刪除。`);
+      showWarning('無法刪除分類', `分類「${catName}」目前有待辦事項正在使用，請先修改相關事項的分類。`);
       return;
     }
     
     if (categories.length <= 1) {
-      alert('至少需保留一個分類！');
+      showWarning('無法刪除分類', '至少需保留一個分類。');
       return;
     }
 
-    if (window.confirm(`確定要刪除「${catName}」分類嗎？`)) {
+    if (await showConfirm('刪除分類？', `確定要刪除「${catName}」分類嗎？`)) {
       const updated = categories.filter(c => c !== catName);
       setCategories(updated);
       if (newCategory === catName) {
@@ -96,7 +97,7 @@ export default function TodoList({
     if (!cleanName) return;
 
     if (categories.includes(cleanName)) {
-      alert('此分類已存在！');
+      showWarning('分類已存在', '請輸入另一個分類名稱。');
       return;
     }
 

@@ -11,6 +11,7 @@ import ResponseList, { filterResponses } from './components/ResponseList';
 import {
   TodoItem,
   TableAssignments,
+  DEFAULT_CATEGORIES,
   CalendarEvent,
   FormResponseRow,
   GuestImportCandidate,
@@ -26,7 +27,6 @@ import {
   Gift, 
   Sparkles,
   CheckCircle2,
-  Copy,
   Check,
   X,
   ClipboardList,
@@ -36,8 +36,8 @@ import {
   Database,
   FileText
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 import { saveWeddingPlan, loadWeddingPlan, subscribeWeddingPlan, WeddingPlanData } from './lib/firebase';
+import { showConfirm, showError, showSuccess, showWarning } from './lib/alerts';
 
 const getTodayDate = () => {
   const today = new Date();
@@ -47,7 +47,7 @@ const getTodayDate = () => {
 
 const getEmptyPlanData = (): WeddingPlanData => ({
   weddingDate: getTodayDate(),
-  categories: [],
+  categories: [...DEFAULT_CATEGORIES],
   tasks: [],
   tableAssignments: { table_size_limit: 12, tables: [] },
   calendarEvents: [],
@@ -62,7 +62,7 @@ export default function App() {
   // Empty default tasks
   const [tasks, setTasks] = useState<TodoItem[]>(() => {
     const saved = localStorage.getItem('wedding_tasks');
-    return saved ? JSON.parse(saved) : [];
+    return saved ? JSON.parse(saved) : [...DEFAULT_CATEGORIES];
   });
 
   // Empty default table assignments
@@ -138,9 +138,6 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<'todo' | 'calendar' | 'responses' | 'table'>('todo');
 
-  const [isExporting, setIsExporting] = useState(false);
-  const [copied, setCopied] = useState(false);
-
   // Firebase Sync States
   const [syncKey, setSyncKey] = useState<string>(() => {
     return localStorage.getItem('wedding_sync_key') || '';
@@ -186,7 +183,7 @@ export default function App() {
         // Standardize the incoming payload shape to match exactly what we send out
         const incomingData: WeddingPlanData = {
           weddingDate: cloudData.weddingDate || getTodayDate(),
-          categories: cloudData.categories !== undefined ? cloudData.categories : [],
+          categories: cloudData.categories !== undefined ? cloudData.categories : [...DEFAULT_CATEGORIES],
           tasks: cloudData.tasks !== undefined ? cloudData.tasks : [],
           tableAssignments: cloudData.tableAssignments !== undefined ? cloudData.tableAssignments : { table_size_limit: 12, tables: [] },
           calendarEvents: cloudData.calendarEvents !== undefined ? cloudData.calendarEvents : [],
@@ -246,7 +243,7 @@ export default function App() {
 
   const applyPlanData = (data: WeddingPlanData) => {
     setWeddingDate(data.weddingDate || getTodayDate());
-    setCategories(data.categories || []);
+    setCategories(data.categories !== undefined ? data.categories : [...DEFAULT_CATEGORIES]);
     setTasks(data.tasks || []);
     setTableAssignments(data.tableAssignments || { table_size_limit: 12, tables: [] });
     setCalendarEvents(data.calendarEvents || []);
@@ -276,11 +273,11 @@ export default function App() {
     const cleanKey = syncKey.trim();
     const cleanUsername = username.trim();
     if (!cleanKey || !cleanUsername) {
-      alert('請先輸入使用者名稱及婚禮同步金鑰！');
+      showWarning('資料尚未填寫完整', '請先輸入使用者名稱及婚禮同步金鑰。');
       return;
     }
     if (!/^[A-Za-z0-9_-]+$/.test(cleanKey) || !/^[A-Za-z0-9_-]+$/.test(cleanUsername)) {
-      alert('使用者名稱及金鑰只可包含英文、數字、底線或連字號。');
+      showWarning('格式不正確', '使用者名稱及金鑰只可包含英文、數字、底線或連字號。');
       return;
     }
     setActiveDocumentId(`${cleanUsername}_${cleanKey}`);
@@ -289,7 +286,7 @@ export default function App() {
 
   const handleManualUpload = async () => {
     if (!isSyncEnabled || !activeDocumentId) {
-      alert("請先確認使用者名稱及婚禮同步金鑰！");
+      showWarning('尚未連接雲端', '請先確認使用者名稱及婚禮同步金鑰。');
       return;
     }
     try {
@@ -298,34 +295,34 @@ export default function App() {
       await saveWeddingPlan(activeDocumentId, dataToSave);
       lastSyncedData.current = JSON.stringify(dataToSave);
       setSyncStatus('synced');
-      alert("儲存成功！目前的籌備資料已同步至雲端。");
+      showSuccess('儲存成功', '目前的籌備資料已同步至雲端。');
     } catch (err: any) {
       setSyncStatus('error');
       setSyncError(`儲存失敗: ${err.message}`);
-      alert(`儲存失敗: ${err.message}`);
+      showError('儲存失敗', err.message);
     }
   };
 
   const handleManualDownload = async () => {
     if (!isSyncEnabled || !activeDocumentId) {
-      alert("請先確認使用者名稱及婚禮同步金鑰！");
+      showWarning('尚未連接雲端', '請先確認使用者名稱及婚禮同步金鑰。');
       return;
     }
-    if (!window.confirm("確定要從雲端同步並【覆蓋】您目前這台設備上的所有資料嗎？(此動作無法復原)")) {
+    if (!await showConfirm('從雲端同步？', '這會覆蓋目前裝置上的所有資料，而且無法復原。')) {
       return;
     }
     try {
       setSyncStatus('loading');
       const cloudData = await loadWeddingPlan(activeDocumentId);
       if (!cloudData) {
-        alert("雲端尚無此帳戶的資料，無法同步覆蓋。");
+        showWarning('找不到雲端資料', '此帳戶尚未建立任何雲端資料。');
         setSyncStatus('offline');
         return;
       }
       
       const incomingData: WeddingPlanData = {
         weddingDate: cloudData.weddingDate || getTodayDate(),
-        categories: cloudData.categories !== undefined ? cloudData.categories : [],
+        categories: cloudData.categories !== undefined ? cloudData.categories : [...DEFAULT_CATEGORIES],
         tasks: cloudData.tasks !== undefined ? cloudData.tasks : [],
         tableAssignments: cloudData.tableAssignments !== undefined ? cloudData.tableAssignments : { table_size_limit: 12, tables: [] },
         calendarEvents: cloudData.calendarEvents !== undefined ? cloudData.calendarEvents : [],
@@ -341,11 +338,11 @@ export default function App() {
       applyPlanData(incomingData);
       
       setSyncStatus('synced');
-      alert("已成功從雲端同步最新籌備資料並覆蓋本機資料！");
+      showSuccess('同步完成', '已載入最新的雲端籌備資料。');
     } catch (err: any) {
       setSyncStatus('error');
       setSyncError(`雲端同步失敗: ${err.message}`);
-      alert(`雲端同步失敗: ${err.message}`);
+      showError('雲端同步失敗', err.message);
     }
   };
 
@@ -426,12 +423,12 @@ export default function App() {
 
   const daysRemaining = getDaysRemaining();
 
-  const handleReset = () => {
-    if (window.confirm('確定要清除所有資料並重設嗎？(這將覆蓋您目前的修改)')) {
+  const handleReset = async () => {
+    if (await showConfirm('清除所有資料？', '目前的修改將被清除，而且無法復原。')) {
       setTasks([]);
       setTableAssignments({ table_size_limit: 12, tables: [] });
       setWeddingDate(getTodayDate());
-      setCategories([]);
+      setCategories([...DEFAULT_CATEGORIES]);
       setCalendarEvents([]);
       setResponseSourceConfig({ sheetUrl: '', spreadsheetId: '', range: '' });
       setResponseHeaders([]);
@@ -442,45 +439,73 @@ export default function App() {
     }
   };
 
-  const getExportJSON = () => {
-    const formattedTodoList = tasks.map(t => ({
-      id: t.id,
-      category: t.category,
-      title: t.title,
-      due_date: t.due_date,
-      status: t.status,
-      notes: t.notes
-    }));
-
-    const formattedTableAssignments = {
-      table_size_limit: tableAssignments.table_size_limit,
-      tables: tableAssignments.tables.map(t => {
-        const guestCount = t.guests.length;
-        let status = 'Empty';
-        if (guestCount === tableAssignments.table_size_limit) status = 'Full';
-        else if (guestCount > tableAssignments.table_size_limit) status = 'Overfilled';
-        else if (guestCount > 0) status = 'In_Progress';
-
-        return {
-          table_no: t.table_no,
-          zone: t.zone,
-          current_guests: guestCount,
-          status: status,
-          guests: t.guests 
-        };
-      })
+  const handleExportExcel = async () => {
+    const { Workbook } = await import('exceljs');
+    const workbook = new Workbook();
+    const addSheet = (name: string, rows: Record<string, unknown>[], widths: number[]) => {
+      const data = rows.length ? rows : [{ 資料: '尚無資料' }];
+      const keys = Object.keys(data[0]);
+      const worksheet = workbook.addWorksheet(name);
+      worksheet.columns = keys.map((key, index) => ({
+        header: key,
+        key,
+        width: widths[index] || 18
+      }));
+      worksheet.addRows(data);
+      worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF8E9E8C' } };
+      worksheet.views = [{ state: 'frozen', ySplit: 1 }];
     };
 
-    return JSON.stringify({
-      todo_list: formattedTodoList,
-      table_assignments: formattedTableAssignments
-    }, null, 2);
-  };
+    addSheet('待辦事項', tasks.map(task => ({
+      分類: task.category,
+      任務名稱: task.title,
+      到期日: task.due_date,
+      狀態: task.status === 'Completed' ? '已完成' : task.status === 'In_Progress' ? '進行中' : '待處理',
+      店家品牌: task.shopName || '',
+      預算: task.budget ?? '',
+      實際花費: task.actualAmount ?? '',
+      聯絡資料: task.contactInfo || '',
+      地點: task.location || '',
+      備註: task.notes || ''
+    })), [16, 28, 14, 12, 20, 14, 14, 22, 24, 32]);
 
-  const handleCopyJSON = () => {
-    navigator.clipboard.writeText(getExportJSON());
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    addSheet('桌席安排', tableAssignments.tables.map(table => ({
+      桌號: table.table_no,
+      桌席區域: table.zone,
+      賓客人數: table.guests.length,
+      每桌上限: tableAssignments.table_size_limit
+    })), [10, 22, 12, 12]);
+
+    addSheet('賓客名單', tableAssignments.tables.flatMap(table => table.guests.map(guest => ({
+      桌號: table.table_no,
+      桌席區域: table.zone,
+      賓客姓名: guest.name,
+      備註: guest.notes || ''
+    }))), [10, 22, 20, 32]);
+
+    addSheet('籌備日曆', calendarEvents.map(event => ({
+      日期: event.date,
+      時間: event.time || '',
+      行程名稱: event.title,
+      分類: event.category || '',
+      備註: event.notes || ''
+    })), [14, 10, 28, 18, 32]);
+
+    addSheet('表單回覆', formResponses.map(response => ({
+      列號: response.rowNumber,
+      ...response.values
+    })), [10, ...responseHeaders.map(() => 22)]);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `婚禮籌備資料_${getTodayDate()}.xlsx`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showSuccess('Excel 匯出完成', '檔案已下載至您的裝置。');
   };
 
   return (
@@ -521,11 +546,11 @@ export default function App() {
 
             <button
               id="btn_export_data"
-              onClick={() => setIsExporting(true)}
+              onClick={handleExportExcel}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-[#8E9E8C] text-white hover:bg-[#7D8C7C] rounded-lg text-xs font-semibold shadow-xs transition"
             >
               <Download className="w-3.5 h-3.5" />
-              匯出 JSON
+              匯出 Excel
             </button>
             <button
               id="btn_reset_data"
@@ -699,10 +724,10 @@ export default function App() {
               <div className="flex flex-wrap justify-end gap-2">
                 {isSyncEnabled && (
                   <button
-                    onClick={() => {
-                      if (hasUnsavedChanges && !window.confirm('目前有尚未儲存的變更，確定要更改帳戶資料嗎？')) return;
+                    onClick={async () => {
+                      if (hasUnsavedChanges && !await showConfirm('更改帳戶資料？', '目前有尚未儲存的變更，繼續後這些變更可能會遺失。')) return;
                       setIsSyncEnabled(false);
-                      setActiveCollectionName('');
+                      setActiveDocumentId('');
                       setSyncStatus('offline');
                     }}
                     className="px-3.5 py-2 bg-stone-200 hover:bg-stone-300 text-stone-700 text-xs font-semibold rounded-xl transition cursor-pointer"
@@ -830,56 +855,6 @@ export default function App() {
         </div>
 
       </main>
-
-      <AnimatePresence>
-        {isExporting && (
-          <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-[2rem] border border-[#E2D9CD] shadow-xl max-w-2xl w-full p-6 flex flex-col max-h-[90vh]"
-            >
-              <div className="flex justify-between items-center border-b border-[#F0EBE4] pb-4 mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold font-serif text-[#5E564E]">匯出婚禮籌備資料</h3>
-                  <p className="text-xs text-[#A6998A] mt-1">符合您的資料規格之 JSON 格式，可備份或傳遞給其他工具</p>
-                </div>
-                <button
-                  id="btn_close_export"
-                  onClick={() => setIsExporting(false)}
-                  className="p-1 hover:bg-[#FAF8F5] rounded text-[#A6998A] hover:text-[#4A443F] transition"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-auto bg-[#5E564E] rounded-xl p-4 mb-4 relative font-mono text-xs text-stone-100">
-                <button
-                  id="btn_copy_json"
-                  onClick={handleCopyJSON}
-                  className="absolute top-3 right-3 p-1.5 bg-black/30 hover:bg-black/50 text-stone-200 hover:text-white rounded-lg border border-white/10 flex items-center gap-1 transition"
-                  title="複製到剪貼簿"
-                >
-                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span className="text-[10px]">{copied ? '已複製！' : '複製'}</span>
-                </button>
-                <pre className="whitespace-pre-wrap select-all">{getExportJSON()}</pre>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <button
-                  id="btn_export_modal_close"
-                  onClick={() => setIsExporting(false)}
-                  className="px-4 py-2 bg-[#F2EDE4] hover:bg-[#E2D9CD] text-[#4A443F] rounded-lg text-xs font-semibold transition"
-                >
-                  關閉
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       <footer className="mt-12 text-center text-[11px] text-[#A6998A]">
         <p>© 2026 婚禮待辦與排座助手 • 陪伴每對新人優雅起航</p>

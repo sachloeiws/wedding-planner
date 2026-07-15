@@ -22,6 +22,7 @@ import {
   Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { showWarning } from '../lib/alerts';
 
 interface TablePlannerProps {
   tableAssignments: TableAssignments;
@@ -237,7 +238,7 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
     );
 
     if (alreadySeated) {
-      alert(`${name} 已經在座位表中`);
+      showWarning('賓客已安排座位', `${name} 已經在座位表中。`);
       return;
     }
 
