@@ -238,15 +238,24 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
     });
 
   const candidateToGuests = (candidate: GuestImportCandidate) => {
-    const size = Math.max(1, candidate.partySize || 1);
+    const adultCount = Math.max(1, candidate.adultCount || candidate.partySize || 1);
+    const childCount = Math.max(0, candidate.childCount || 0);
     const details = [candidate.relationship, candidate.notes, candidate.phone || candidate.email].filter(Boolean).join(' / ');
-    return Array.from({ length: size }, (_, index) => ({
-      id: `g_response_${candidate.id}_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`,
-      name: index === 0 ? candidate.name.trim() : `${candidate.name.trim()}－同行賓客 ${index}`,
-      notes: details || candidate.sourceLabel || ''
+    const stamp = Date.now();
+    const adults = Array.from({ length: adultCount }, (_, index) => ({
+      id: `g_response_${candidate.id}_${stamp}_adult_${index}_${Math.random().toString(36).slice(2, 6)}`,
+      name: index === 0 ? candidate.name.trim() : `${candidate.name.trim()}－同行大人 ${index}`,
+      notes: details || candidate.sourceLabel || '',
+      guestType: 'adult' as const
     }));
+    const children = Array.from({ length: childCount }, (_, index) => ({
+      id: `g_response_${candidate.id}_${stamp}_child_${index}_${Math.random().toString(36).slice(2, 6)}`,
+      name: `${candidate.name.trim()}－同行兒童 ${index + 1}`,
+      notes: details || candidate.sourceLabel || '',
+      guestType: 'child' as const
+    }));
+    return [...adults, ...children];
   };
-
   const handleImportResponseGuest = (tableNo: number, candidate: GuestImportCandidate) => {
     const name = candidate.name.trim();
     const nameKey = name.toLowerCase();
@@ -262,6 +271,12 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
     }
 
     const newGuests = candidateToGuests(candidate);
+    const targetTable = tableAssignments.tables.find(table => table.table_no === tableNo);
+    if (!targetTable || targetTable.guests.length + newGuests.length > table_size_limit) {
+      const remainingSeats = Math.max(0, table_size_limit - (targetTable?.guests.length || 0));
+      showWarning('座位數不足', `${name} 共 ${newGuests.length} 位，目前此桌僅剩 ${remainingSeats} 個座位，無法排入。`);
+      return;
+    }
 
     setTableAssignments(prev => ({
       ...prev,
@@ -274,7 +289,14 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
 
   const handleImportAllResponseGuests = (tableNo: number) => {
     if (availableResponseGuests.length === 0) return;
-
+    const targetTable = tableAssignments.tables.find(table => table.table_no === tableNo);
+    if (!targetTable) return;
+    const guestsToImport = availableResponseGuests.flatMap(candidateToGuests);
+    const remainingSeats = Math.max(0, table_size_limit - targetTable.guests.length);
+    if (guestsToImport.length > remainingSeats) {
+      showWarning('座位數不足', `全部待排賓客共 ${guestsToImport.length} 位，但此桌僅剩 ${remainingSeats} 個座位，請改用個別加入或選擇其他桌。`);
+      return;
+    }
     setTableAssignments(prev => {
       const currentNames = new Set(
         prev.tables.flatMap(table => table.guests.map(guest => guest.name.trim().toLowerCase()).filter(Boolean))
@@ -672,7 +694,7 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
                               <div className="flex items-start justify-between">
                                 <div className="font-semibold text-[#4A443F] text-xs">
                                   <span className="font-mono text-[#A6998A] mr-1.5 text-[10px]">{idx + 1}.</span>
-                                  {guest.name}
+                                  {guest.name}                                  <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${guest.guestType === 'child' ? 'bg-amber-50 text-amber-700' : 'bg-[#F5F8F5] text-[#7D8C7C]'}`}>{guest.guestType === 'child' ? '兒童' : '大人'}</span>
                                 </div>
                                 <div className="flex gap-1 md:opacity-0 group-hover:opacity-100 transition duration-150 shrink-0">
                                   <button
@@ -791,7 +813,7 @@ export default function TablePlanner({ tableAssignments, setTableAssignments, re
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <p className="text-xs font-semibold text-[#4A443F] truncate">{candidate.name}</p>
-                            {(candidate.partySize || 1) > 1 && <span className="px-1.5 py-0.5 rounded-full bg-[#F2EDE4] text-[#8C745A] text-[9px] font-bold">一行 {candidate.partySize} 人</span>}
+                            <span className="px-1.5 py-0.5 rounded-full bg-[#F5F8F5] text-[#7D8C7C] text-[9px] font-bold">大人 {candidate.adultCount || candidate.partySize || 1}</span><span className="px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[9px] font-bold">兒童 {candidate.childCount || 0}</span>
                             {candidate.relationship && <span className="px-1.5 py-0.5 rounded-full bg-white border border-[#E2D9CD] text-[#A6998A] text-[9px]">{candidate.relationship}</span>}
                           </div>
                           {(candidate.notes || candidate.sourceLabel) && (

@@ -50,6 +50,7 @@ import {
   WeddingPlanData
 } from './lib/firebase';
 import { showConfirm, showConflict, showError, showSuccess, showWarning } from './lib/alerts';
+import { getResponseGuestCounts } from './lib/responseGuestCount';
 
 const getTodayDate = () => {
   const today = new Date();
@@ -478,6 +479,7 @@ export default function App() {
       const nameField = responseFieldMapping.nameField;
       const name = nameField ? (row.values[nameField] || '').trim() : '';
       if (!name) return null;
+      const guestCounts = getResponseGuestCounts(row, responseFieldMapping.countField);
 
       const notes = [
         responseFieldMapping.attendanceField ? row.values[responseFieldMapping.attendanceField] : '',
@@ -496,7 +498,9 @@ export default function App() {
         phone: responseFieldMapping.phoneField ? row.values[responseFieldMapping.phoneField] : '',
         email: responseFieldMapping.emailField ? row.values[responseFieldMapping.emailField] : '',
         attendance: responseFieldMapping.attendanceField ? row.values[responseFieldMapping.attendanceField] : '',
-        partySize: responseFieldMapping.countField ? Math.max(1, Number.parseInt(row.values[responseFieldMapping.countField], 10) || 1) : 1,
+        partySize: guestCounts.totalCount,
+        adultCount: guestCounts.adultCount,
+        childCount: guestCounts.childCount,
         relationship: responseFieldMapping.relationshipField ? row.values[responseFieldMapping.relationshipField] : '',
       };
     })
@@ -932,6 +936,7 @@ export default function App() {
           {activeTab === 'calendar' && (
             <WeddingCalendar 
               tasks={tasks} 
+              setTasks={setTasks}
               calendarEvents={calendarEvents} 
               setCalendarEvents={setCalendarEvents} 
             />

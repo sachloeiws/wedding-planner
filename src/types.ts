@@ -10,6 +10,7 @@ export interface TodoItem {
   category: string;
   title: string;
   due_date: string;
+  due_time?: string;
   status: TaskStatus;
   notes: string;
   // New wedding prep fields
@@ -35,6 +36,7 @@ export interface GuestItem {
   id: string;
   name: string;
   notes?: string;
+  guestType?: 'adult' | 'child';
 }
 
 export interface TableItem {
@@ -92,6 +94,8 @@ export interface GuestImportCandidate {
   email?: string;
   attendance?: string;
   partySize?: number;
+  adultCount?: number;
+  childCount?: number;
   relationship?: string;
 }
 

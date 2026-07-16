@@ -50,6 +50,7 @@ export default function TodoList({
   const [newTitle, setNewTitle] = useState('');
   const [newCategory, setNewCategory] = useState(categories[0] || '場地與餐宴');
   const [newDueDate, setNewDueDate] = useState('');
+  const [newDueTime, setNewDueTime] = useState('09:00');
   const [newNotes, setNewNotes] = useState('');
   const [newShopName, setNewShopName] = useState('');
   const [newBudget, setNewBudget] = useState('');
@@ -61,6 +62,7 @@ export default function TodoList({
   const [editTitle, setEditTitle] = useState('');
   const [editCategory, setEditCategory] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
+  const [editDueTime, setEditDueTime] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editShopName, setEditShopName] = useState('');
   const [editBudget, setEditBudget] = useState('');
@@ -117,6 +119,7 @@ export default function TodoList({
       category: newCategory,
       title: newTitle,
       due_date: newDueDate || new Date().toISOString().split('T')[0],
+      due_time: newDueDate ? newDueTime : undefined,
       status: 'Pending',
       notes: newNotes,
       shopName: newShopName.trim() || undefined,
@@ -131,6 +134,7 @@ export default function TodoList({
     // Reset form
     setNewTitle('');
     setNewDueDate('');
+    setNewDueTime('09:00');
     setNewNotes('');
     setNewShopName('');
     setNewBudget('');
@@ -145,6 +149,7 @@ export default function TodoList({
     setEditTitle(task.title);
     setEditCategory(task.category);
     setEditDueDate(task.due_date);
+    setEditDueTime(task.due_time || '');
     setEditNotes(task.notes);
     setEditShopName(task.shopName || '');
     setEditBudget(task.budget !== undefined ? String(task.budget) : '');
@@ -160,6 +165,7 @@ export default function TodoList({
       title: editTitle,
       category: editCategory,
       due_date: editDueDate,
+      due_time: editDueDate ? editDueTime || undefined : undefined,
       notes: editNotes,
       shopName: editShopName.trim() || undefined,
       budget: editBudget ? parseFloat(editBudget) : undefined,
@@ -566,6 +572,10 @@ export default function TodoList({
                 />
               </div>
               <div>
+                <label className="block text-xs font-medium text-[#A6998A] mb-1">時間</label>
+                <input id="input_task_due_time" type="time" step="60" value={newDueTime} disabled={!newDueDate} onChange={e => setNewDueTime(e.target.value)} className="w-full px-3 py-1.5 text-xs bg-white border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C] disabled:bg-stone-100 disabled:text-stone-400" />
+              </div>
+              <div>
                 <label className="block text-xs font-medium text-[#A6998A] mb-1">籌備地點</label>
                 <input
                   type="text"
@@ -748,6 +758,10 @@ export default function TodoList({
                           />
                         </div>
                         <div>
+                          <label className="block text-[10px] font-medium text-[#A6998A] mb-0.5">時間</label>
+                          <input id={`edit_task_due_time_${task.id}`} type="time" step="60" value={editDueTime} disabled={!editDueDate} onChange={e => setEditDueTime(e.target.value)} className="w-full px-2.5 py-1 text-xs border border-[#E2D9CD] rounded focus:outline-none disabled:bg-stone-100 disabled:text-stone-400" />
+                        </div>
+                        <div>
                           <label className="block text-[10px] font-medium text-[#A6998A] mb-0.5">地點 (地址)</label>
                           <input
                             type="text"
@@ -821,7 +835,7 @@ export default function TodoList({
                               {task.due_date && (
                                 <span className="text-[9px] text-[#D4A373] flex items-center gap-0.5 font-mono">
                                   <Calendar className="w-2.5 h-2.5" />
-                                  {task.due_date}
+                                  {task.due_date}{task.due_time ? ` ${task.due_time}` : ''}
                                 </span>
                               )}
                             </div>

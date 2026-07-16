@@ -15,18 +15,22 @@ import {
   Tag, 
   X,
   Sparkles,
-  ClipboardList
+  ClipboardList,
+  Edit3,
+  Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface WeddingCalendarProps {
   tasks: TodoItem[];
+  setTasks: React.Dispatch<React.SetStateAction<TodoItem[]>>;
   calendarEvents: CalendarEvent[];
   setCalendarEvents: React.Dispatch<React.SetStateAction<CalendarEvent[]>>;
 }
 
 export default function WeddingCalendar({ 
   tasks, 
+  setTasks,
   calendarEvents, 
   setCalendarEvents 
 }: WeddingCalendarProps) {
@@ -37,6 +41,11 @@ export default function WeddingCalendar({
     today.toISOString().split('T')[0]
   );
   const [isAddingEvent, setIsAddingEvent] = useState(false);
+  const [editingItem, setEditingItem] = useState<{ type: 'task' | 'event'; id: string } | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
+  const [editNotes, setEditNotes] = useState('');
 
   // Form states for new calendar event
   const [newEventTitle, setNewEventTitle] = useState('');
@@ -125,6 +134,7 @@ export default function WeddingCalendar({
   const isValidEventTime = (time?: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time || '');
 
   const getEventTime = (event: CalendarEvent) => isValidEventTime(event.time) ? event.time! : '00:00';
+  const getTaskTime = (task: TodoItem) => isValidEventTime(task.due_time) ? task.due_time! : '23:59';
 
   const sortEventsByTime = (events: CalendarEvent[]) => [...events].sort((a, b) => {
     const timeCompare = getEventTime(a).localeCompare(getEventTime(b));
@@ -134,7 +144,8 @@ export default function WeddingCalendar({
 
   // Get items for a given date
   const getItemsForDate = (dateStr: string) => {
-    const dayTasks = tasks.filter(t => t.due_date === dateStr);
+    const dayTasks = tasks.filter(t => t.due_date === dateStr)
+      .sort((a, b) => getTaskTime(a).localeCompare(getTaskTime(b)) || a.title.localeCompare(b.title));
     const dayEvents = calendarEvents.filter(e => e.date === dateStr);
     return { dayTasks, dayEvents };
   };
@@ -150,7 +161,7 @@ export default function WeddingCalendar({
     const taskItems = dayTasks.map(task => ({
       id: task.id,
       type: 'task' as const,
-      label: task.title,
+      label: `${task.due_time || ''} ${task.title}`.trim(),
       className: 'bg-[#F5F8F5] text-[#7D8C7C] border-[#E2D9CD]/40',
     }));
     return [...eventItems, ...taskItems];
@@ -182,6 +193,30 @@ export default function WeddingCalendar({
     setCalendarEvents(prev => prev.filter(e => e.id !== id));
   };
 
+  const handleStartEdit = (type: 'task' | 'event', item: TodoItem | CalendarEvent) => {
+    setEditingItem({ type, id: item.id });
+    setEditTitle(item.title);
+    setEditDate(type === 'task' ? (item as TodoItem).due_date : (item as CalendarEvent).date);
+    setEditTime(type === 'task' ? (item as TodoItem).due_time || '' : (item as CalendarEvent).time || '');
+    setEditNotes(item.notes || '');
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingItem || !editTitle.trim() || !editDate) return;
+    if (editingItem.type === 'task') {
+      setTasks(previous => previous.map(task => task.id === editingItem.id ? {
+        ...task, title: editTitle.trim(), due_date: editDate,
+        due_time: isValidEventTime(editTime) ? editTime : undefined, notes: editNotes
+      } : task));
+    } else {
+      setCalendarEvents(previous => previous.map(event => event.id === editingItem.id ? {
+        ...event, title: editTitle.trim(), date: editDate,
+        time: isValidEventTime(editTime) ? editTime : '00:00', notes: editNotes
+      } : event));
+    }
+    setSelectedDateStr(editDate);
+    setEditingItem(null);
+  };
   const { dayTasks: selectedTasks, dayEvents: selectedEvents } = getItemsForDate(selectedDateStr);
   const sortedSelectedEvents = sortEventsByTime(selectedEvents);
   const totalItemsToday = selectedTasks.length + selectedEvents.length;
@@ -389,6 +424,20 @@ export default function WeddingCalendar({
               )}
             </AnimatePresence>
 
+            {editingItem && (
+              <div className="bg-white border border-[#E2D9CD] rounded-2xl p-4 mb-4 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="標題" className="px-3 py-1.5 text-xs border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C]" />
+                  <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className="px-3 py-1.5 text-xs border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C]" />
+                  <input type="time" step="60" value={editTime} onChange={e => setEditTime(e.target.value)} className="px-3 py-1.5 text-xs border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C]" />
+                  <input type="text" value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="備註" className="px-3 py-1.5 text-xs border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C]" />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => setEditingItem(null)} className="px-2.5 py-1.5 bg-stone-100 text-stone-500 text-[10px] font-semibold rounded-lg">取消</button>
+                  <button type="button" onClick={handleSaveEdit} className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#8E9E8C] text-white text-[10px] font-semibold rounded-lg"><Check className="w-3 h-3" />儲存</button>
+                </div>
+              </div>
+            )}
             {/* List of Today's Items */}
             <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
               {totalItemsToday === 0 ? (
@@ -411,6 +460,7 @@ export default function WeddingCalendar({
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FAF5EE] text-[#8C745A] border border-[#E8DFD1] font-mono font-bold">{getEventTime(ev)}</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white text-[#8C745A] border border-[#E8DFD1]">行事曆</span>
                             <span className="text-xs font-semibold text-[#5E564E]">{ev.title}</span>
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#FAF5EE] text-[#D4A373] border border-[#E8DFD1]">
                               {ev.category || '行程'}
@@ -421,13 +471,17 @@ export default function WeddingCalendar({
                           )}
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleDeleteEvent(ev.id)}
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => handleStartEdit('event', ev)} className="p-1.5 hover:bg-[#FAF8F5] text-[#A6998A]/70 hover:text-[#8E9E8C] rounded-lg transition cursor-pointer" title="編輯行程">
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>                        <button
+                          onClick={() => handleDeleteEvent(ev.id)}
                         className="p-1.5 hover:bg-[#FAF8F5] text-[#A6998A]/70 hover:text-[#D4A373] rounded-lg opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition cursor-pointer"
                         title="刪除此行程"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
 
@@ -435,7 +489,7 @@ export default function WeddingCalendar({
                   {selectedTasks.map(task => (
                     <div 
                       key={task.id}
-                      className="flex items-center justify-between p-3 bg-white border border-[#F0EBE4] rounded-xl hover:border-[#8E9E8C]/40 transition"
+                      className="flex items-center justify-between p-3 bg-white border border-[#F0EBE4] rounded-xl hover:border-[#8E9E8C]/40 transition group"
                     >
                       <div className="flex items-start gap-2.5 min-w-0">
                         <div className="w-7 h-7 rounded-lg bg-[#F5F8F5] flex items-center justify-center text-[#8E9E8C] shrink-0">
@@ -443,7 +497,7 @@ export default function WeddingCalendar({
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs font-semibold text-[#5E564E]">{task.title}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#F5F8F5] text-[#7D8C7C] border border-[#E2D9CD]/40 font-mono font-bold">{task.due_time || '全天'}</span><span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white text-[#7D8C7C] border border-[#E2D9CD]/40">待辦</span><span className="text-xs font-semibold text-[#5E564E]">{task.title}</span>
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#F5F8F5] text-[#7D8C7C] border border-[#E2D9CD]/30">
                               截止待辦
                             </span>
@@ -456,6 +510,9 @@ export default function WeddingCalendar({
                           )}
                         </div>
                       </div>
+                      <button onClick={() => handleStartEdit('task', task)} className="p-1.5 hover:bg-[#FAF8F5] text-[#A6998A]/70 hover:text-[#8E9E8C] rounded-lg transition cursor-pointer" title="編輯待辦">
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   ))}
                 </>
