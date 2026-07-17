@@ -202,7 +202,7 @@ export default function WeddingCalendar({
   };
 
   const handleSaveEdit = () => {
-    if (!editingItem || !editTitle.trim() || !editDate) return;
+    if (!editingItem || !editTitle.trim() || (editingItem.type === 'event' && !editDate)) return;
     if (editingItem.type === 'task') {
       setTasks(previous => previous.map(task => task.id === editingItem.id ? {
         ...task, title: editTitle.trim(), due_date: editDate,

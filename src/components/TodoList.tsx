@@ -50,7 +50,7 @@ export default function TodoList({
   const [newTitle, setNewTitle] = useState('');
   const [newCategory, setNewCategory] = useState(categories[0] || '場地與餐宴');
   const [newDueDate, setNewDueDate] = useState('');
-  const [newDueTime, setNewDueTime] = useState('09:00');
+  const [newDueTime, setNewDueTime] = useState('');
   const [newNotes, setNewNotes] = useState('');
   const [newShopName, setNewShopName] = useState('');
   const [newBudget, setNewBudget] = useState('');
@@ -118,8 +118,8 @@ export default function TodoList({
       id: `task_${Date.now()}`,
       category: newCategory,
       title: newTitle,
-      due_date: newDueDate || new Date().toISOString().split('T')[0],
-      due_time: newDueDate ? newDueTime : undefined,
+      due_date: newDueDate,
+      due_time: newDueTime || undefined,
       status: 'Pending',
       notes: newNotes,
       shopName: newShopName.trim() || undefined,
@@ -134,7 +134,7 @@ export default function TodoList({
     // Reset form
     setNewTitle('');
     setNewDueDate('');
-    setNewDueTime('09:00');
+    setNewDueTime('');
     setNewNotes('');
     setNewShopName('');
     setNewBudget('');
@@ -165,7 +165,7 @@ export default function TodoList({
       title: editTitle,
       category: editCategory,
       due_date: editDueDate,
-      due_time: editDueDate ? editDueTime || undefined : undefined,
+      due_time: editDueTime || undefined,
       notes: editNotes,
       shopName: editShopName.trim() || undefined,
       budget: editBudget ? parseFloat(editBudget) : undefined,
@@ -573,7 +573,7 @@ export default function TodoList({
               </div>
               <div>
                 <label className="block text-xs font-medium text-[#A6998A] mb-1">時間</label>
-                <input id="input_task_due_time" type="time" step="60" value={newDueTime} disabled={!newDueDate} onChange={e => setNewDueTime(e.target.value)} className="w-full px-3 py-1.5 text-xs bg-white border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C] disabled:bg-stone-100 disabled:text-stone-400" />
+                <input id="input_task_due_time" type="time" step="60" value={newDueTime} onChange={e => setNewDueTime(e.target.value)} className="w-full px-3 py-1.5 text-xs bg-white border border-[#E2D9CD] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#8E9E8C]" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-[#A6998A] mb-1">籌備地點</label>
@@ -759,7 +759,7 @@ export default function TodoList({
                         </div>
                         <div>
                           <label className="block text-[10px] font-medium text-[#A6998A] mb-0.5">時間</label>
-                          <input id={`edit_task_due_time_${task.id}`} type="time" step="60" value={editDueTime} disabled={!editDueDate} onChange={e => setEditDueTime(e.target.value)} className="w-full px-2.5 py-1 text-xs border border-[#E2D9CD] rounded focus:outline-none disabled:bg-stone-100 disabled:text-stone-400" />
+                          <input id={`edit_task_due_time_${task.id}`} type="time" step="60" value={editDueTime} onChange={e => setEditDueTime(e.target.value)} className="w-full px-2.5 py-1 text-xs border border-[#E2D9CD] rounded focus:outline-none" />
                         </div>
                         <div>
                           <label className="block text-[10px] font-medium text-[#A6998A] mb-0.5">地點 (地址)</label>
